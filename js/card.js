@@ -24,6 +24,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Проверяем, является ли пользователь владельцем карточки
     const isOwner = currentCard.owner_id === user.id
 
+    // Проверяем, есть ли доступ к доске через shared_boards
+    const { data: sharedBoard } = await supabase
+        .from('shared_boards')
+        .select('*')
+        .eq('board_id', currentCard.board_id)
+        .eq('user_id', user.id)
+        .single()
+
+    const hasBoardAccess = isOwner || sharedBoard !== null
+
     document.getElementById('userName').textContent = userData.name
     document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase()
     document.getElementById('cardTitle').textContent = currentCard.name
@@ -52,6 +62,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     loadNotes()
 
     document.getElementById('addNoteBtn').addEventListener('click', async function() {
+        if (!hasBoardAccess) {
+            alert('У вас нет прав для добавления заметок в эту карточку')
+            return
+        }
+
         const noteText = document.getElementById('newNoteText').value.trim()
         const noteColor = document.getElementById('newNoteColor').value
         
@@ -110,8 +125,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 noteElement.className = 'note-item'
                 noteElement.style.backgroundColor = note.color
                 
-                // Проверяем, является ли пользователь автором заметки
-                const canEditNote = note.user_id === user.id
+                // Проверяем, является ли пользователь автором заметки или имеет доступ к доске
+                const canEditNote = note.user_id === user.id || hasBoardAccess
                 
                 noteElement.innerHTML = `
                     <p>${note.text}</p>
@@ -184,7 +199,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function editNote(noteId) {
-        const note = currentCard.notes.find(n => n.id === noteId)
+        const note = currentCard.notes?.find(n => n.id === noteId) || 
+                    (await supabase.from('notes').select('*').eq('id', noteId).single()).data
         if (!note) return
 
         const newText = prompt('Редактировать заметку:', note.text)
