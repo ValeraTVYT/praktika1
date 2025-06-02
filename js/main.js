@@ -21,13 +21,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         .from('users')
         .select('*')
         .eq('id', user.id)
-        .maybeSingle()  // Используем maybeSingle вместо single
+        .maybeSingle()
 
-    if (userError) {
-        console.error('Ошибка загрузки данных пользователя:', userError)
-        // Создаем запись пользователя, если ее нет
+    if (userError || !userData) {
+        console.log('Профиль пользователя не найден, создаем новый')
+        // Создаем запись пользователя с обязательным полем username
         await createUserProfile(user)
-        window.location.reload()  // Перезагружаем страницу после создания профиля
+        window.location.reload()
         return
     }
 
@@ -52,16 +52,23 @@ document.addEventListener('DOMContentLoaded', async function() {
         window.location.href = 'index.html'
     })
 
-    // Функция для создания профиля пользователя
     async function createUserProfile(user) {
         try {
+            // Генерируем username из email (все до @) или используем 'user'+id
+            const username = user.email ? 
+                user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_') : 
+                'user_' + user.id.substring(0, 8)
+            
+            const name = user.email ? user.email.split('@')[0] : 'Пользователь'
+
             const { error } = await supabase
                 .from('users')
                 .insert([
                     {
                         id: user.id,
                         email: user.email,
-                        name: user.email.split('@')[0] || 'Пользователь',
+                        username: username, // обязательное поле
+                        name: name,
                         created_at: new Date().toISOString()
                     }
                 ])
@@ -70,6 +77,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             console.log('Профиль пользователя успешно создан')
         } catch (error) {
             console.error('Ошибка при создании профиля пользователя:', error)
+            alert('Не удалось создать профиль пользователя. Пожалуйста, попробуйте снова.')
         }
     }
 
