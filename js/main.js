@@ -1,17 +1,10 @@
+// Обновленный main.js
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', async function() {
     // Проверка аутентификации
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError) {
-        console.error('Ошибка аутентификации:', authError)
-        window.location.href = 'index.html'
-        return
-    }
-    
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-        console.log('Пользователь не аутентифицирован')
         window.location.href = 'index.html'
         return
     }
@@ -21,29 +14,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         .from('users')
         .select('*')
         .eq('id', user.id)
-        .maybeSingle()
+        .single()
 
-    if (userError || !userData) {
-        console.log('Профиль пользователя не найден, создаем новый')
-        // Создаем запись пользователя с обязательным полем username
-        await createUserProfile(user)
-        window.location.reload()
+    if (userError) {
+        console.error(userError)
         return
     }
 
-    if (!userData) {
-        console.log('Профиль пользователя не найден, создаем новый')
-        // Создаем запись пользователя, если ее нет
-        await createUserProfile(user)
-        window.location.reload()  // Перезагружаем страницу после создания профиля
-        return
-    }
+    document.getElementById('userName').textContent = userData.name
+    document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase()
 
-    // Отображаем данные пользователя
-    document.getElementById('userName').textContent = userData.name || 'Пользователь'
-    document.getElementById('userAvatar').textContent = (userData.name?.charAt(0) || 'П').toUpperCase()
-
-    // Остальной код остается без изменений...
     document.getElementById('logoutBtn').addEventListener('click', async function() {
         await supabase.auth.signOut()
         sessionStorage.removeItem('currentUser')
@@ -52,158 +32,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         window.location.href = 'index.html'
     })
 
-    async function createUserProfile(user) {
-        try {
-            // Генерируем username из email (все до @) или используем 'user'+id
-            const username = user.email ? 
-                user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_') : 
-                'user_' + user.id.substring(0, 8)
-            
-            const name = user.email ? user.email.split('@')[0] : 'Пользователь'
-
-            const { error } = await supabase
-                .from('users')
-                .insert([
-                    {
-                        id: user.id,
-                        email: user.email,
-                        username: username, // обязательное поле
-                        name: name,
-                        created_at: new Date().toISOString()
-                    }
-                ])
-            
-            if (error) throw error
-            console.log('Профиль пользователя успешно создан')
-        } catch (error) {
-            console.error('Ошибка при создании профиля пользователя:', error)
-            alert('Не удалось создать профиль пользователя. Пожалуйста, попробуйте снова.')
-        }
-    }
-
     loadBoards()
 
-    async function loadBoards() {
-        const boardsContainer = document.getElementById('boardsContainer')
-        boardsContainer.innerHTML = '<p>Загрузка досок...</p>'
-        
-        try {
-            // Получаем доски пользователя с количеством карточек
-            const { data: userBoards, error: userBoardsError } = await supabase
-                .from('boards')
-                .select(`
-                    *,
-                    cards(count)
-                `)
-                .eq('owner_id', user.id)
-
-            if (userBoardsError) throw userBoardsError
-
-            // Получаем общие доски с количеством карточек
-            const { data: sharedBoards, error: sharedBoardsError } = await supabase
-                .from('shared_boards')
-                .select(`
-                    boards(
-                        *,
-                        cards(count)
-                    )
-                `)
-                .eq('user_id', user.id)
-
-            if (sharedBoardsError) throw sharedBoardsError
-
-            // Формируем массив всех досок
-            const allBoards = [
-                ...(userBoards || []).map(b => ({ 
-                    ...b, 
-                    isShared: false,
-                    cards_count: b.cards[0]?.count || 0
-                })),
-                ...(sharedBoards || []).map(item => ({ 
-                    ...item.boards, 
-                    isShared: true,
-                    cards_count: item.boards.cards[0]?.count || 0
-                }))
-            ]
-
-            if (allBoards.length === 0) {
-                boardsContainer.innerHTML = '<p>У вас пока нет досок. Создайте первую!</p>'
-                return
-            }
-
-            // Для общих досок получаем информацию о владельце
-            const sharedWithOwner = await Promise.all(
-                allBoards
-                    .filter(b => b.isShared)
-                    .map(async board => {
-                        const { data: owner, error: ownerError } = await supabase
-                            .from('users')
-                            .select('name')
-                            .eq('id', board.owner_id)
-                            .maybeSingle()
-                        return { ...board, ownerName: owner?.name || 'Неизвестный' }
-                    })
-            )
-
-            const userBoardsWithOwner = allBoards
-                .filter(b => !b.isShared)
-                .map(board => ({ ...board, ownerName: userData.name }))
-
-            const boardsToDisplay = [...userBoardsWithOwner, ...sharedWithOwner]
-
-            boardsContainer.innerHTML = ''
-            boardsToDisplay.forEach(board => {
-                const boardElement = document.createElement('div')
-                boardElement.className = 'board-item'
-                boardElement.style.backgroundColor = board.color
-                boardElement.innerHTML = `
-                    <h3>${board.name}</h3>
-                    ${board.isShared ? `<p><small>Владелец: ${board.ownerName}</small></p>` : ''}
-                    <p>Карточек: ${board.cards_count}</p>
-                    <div class="board-actions">
-                        ${!board.isShared ? `<button class="share-board btn" data-id="${board.id}" title="Поделиться"><i class="fas fa-share-alt"></i></button>` : ''}
-                        ${!board.isShared ? `<button class="edit-board btn" data-id="${board.id}" title="Редактировать"><i class="fas fa-edit"></i></button>` : ''}
-                        ${!board.isShared ? `<button class="delete-board btn danger" data-id="${board.id}" title="Удалить"><i class="fas fa-trash"></i></button>` : ''}
-                    </div>
-                `
-                
-                boardElement.addEventListener('click', function(e) {
-                    if (!e.target.closest('.board-actions')) {
-                        sessionStorage.setItem('currentBoard', JSON.stringify(board))
-                        window.location.href = 'board.html'
-                    }
-                })
-                
-                if (!board.isShared) {
-                    const shareBtn = boardElement.querySelector('.share-board')
-                    const editBtn = boardElement.querySelector('.edit-board')
-                    const deleteBtn = boardElement.querySelector('.delete-board')
-                    
-                    shareBtn?.addEventListener('click', function(e) {
-                        e.stopPropagation()
-                        openShareModal(board.id)
-                    })
-                    
-                    editBtn?.addEventListener('click', function(e) {
-                        e.stopPropagation()
-                        editBoard(board.id)
-                    })
-                    
-                    deleteBtn?.addEventListener('click', function(e) {
-                        e.stopPropagation()
-                        deleteBoard(board.id)
-                    })
-                }
-                
-                boardsContainer.appendChild(boardElement)
-            })
-        } catch (error) {
-            console.error('Ошибка загрузки досок:', error)
-            boardsContainer.innerHTML = '<p>Произошла ошибка при загрузке досок</p>'
-        }
-    }
-
-    // Обработчик создания доски
     document.getElementById('addBoardBtn').addEventListener('click', async function() {
         const boardName = document.getElementById('newBoardName').value.trim()
         const boardColor = document.getElementById('newBoardColor').value
@@ -213,84 +43,152 @@ document.addEventListener('DOMContentLoaded', async function() {
             return
         }
 
-        try {
-            const { data, error } = await supabase
-                .from('boards')
-                .insert([
-                    { 
-                        name: boardName,
-                        color: boardColor,
-                        owner_id: user.id
-                    }
-                ])
-                .select()
-                .single()
+        const { data, error } = await supabase
+            .from('boards')
+            .insert([
+                { 
+                    name: boardName,
+                    color: boardColor,
+                    owner_id: user.id
+                }
+            ])
+            .select()
 
-            if (error) throw error
+        if (error) {
+            alert(error.message)
+            return
+        }
 
-            // После создания доски добавляем ее в список с нулевым количеством карточек
-            const newBoard = {
-                ...data,
-                isShared: false,
-                cards_count: 0,
-                ownerName: userData.name
+        loadBoards()
+        document.getElementById('newBoardName').value = ''
+    })
+
+    async function loadBoards() {
+    const boardsContainer = document.getElementById('boardsContainer')
+    boardsContainer.innerHTML = ''
+
+    // Получаем доски пользователя
+    const { data: userBoards, error: userBoardsError } = await supabase
+        .from('boards')
+        .select('*')
+        .eq('owner_id', user.id)
+
+    if (userBoardsError) {
+        console.error(userBoardsError)
+        return
+    }
+
+    // Получаем общие доски
+    const { data: sharedBoards, error: sharedBoardsError } = await supabase
+        .from('shared_boards')
+        .select('boards(*)')
+        .eq('user_id', user.id)
+
+    if (sharedBoardsError) {
+        console.error(sharedBoardsError)
+        return
+    }
+
+    const allBoards = [
+        ...userBoards,
+        ...sharedBoards.map(item => ({ ...item.boards, isShared: true }))
+    ]
+
+    if (allBoards.length > 0) {
+        // Получаем количество карточек для каждой доски
+        const { data: allCards, error: cardsError } = await supabase
+            .from('cards')
+            .select('id, board_id')
+
+        if (cardsError) {
+            console.error(cardsError)
+            return
+        }
+
+        // Группируем карточки по board_id
+        const cardCountMap = {}
+        allCards.forEach(card => {
+            if (!cardCountMap[card.board_id]) {
+                cardCountMap[card.board_id] = 0
             }
+            cardCountMap[card.board_id]++
+        })
 
-            // Обновляем интерфейс без перезагрузки всех досок
-            const boardsContainer = document.getElementById('boardsContainer')
-            if (boardsContainer.innerHTML.includes('пока нет досок') || 
-                boardsContainer.innerHTML.includes('Произошла ошибка')) {
-                boardsContainer.innerHTML = ''
-            }
+        // Для общих досок получаем имя владельца
+        const sharedWithOwner = await Promise.all(
+            allBoards
+                .filter(b => b.isShared)
+                .map(async board => {
+                    const { data: owner } = await supabase
+                        .from('users')
+                        .select('name')
+                        .eq('id', board.owner_id)
+                        .single()
+                    return { ...board, ownerName: owner?.name || 'Неизвестно' }
+                })
+        )
 
+        const userBoardsWithOwner = allBoards
+            .filter(b => !b.isShared)
+            .map(board => ({ ...board, ownerName: userData.name }))
+
+        const boardsToDisplay = [...userBoardsWithOwner, ...sharedWithOwner]
+
+        boardsToDisplay.forEach(board => {
             const boardElement = document.createElement('div')
             boardElement.className = 'board-item'
-            boardElement.style.backgroundColor = newBoard.color
+            boardElement.style.backgroundColor = board.color
+
+            const cardCount = cardCountMap[board.id] || 0
+
             boardElement.innerHTML = `
-                <h3>${newBoard.name}</h3>
-                <p>Карточек: ${newBoard.cards_count}</p>
+                <h3>${board.name}</h3>
+                ${board.isShared ? `<p><small>Владелец: ${board.ownerName}</small></p>` : ''}
+                <p>Карточек: ${cardCount}</p>
                 <div class="board-actions">
-                    <button class="share-board btn" data-id="${newBoard.id}" title="Поделиться"><i class="fas fa-share-alt"></i></button>
-                    <button class="edit-board btn" data-id="${newBoard.id}" title="Редактировать"><i class="fas fa-edit"></i></button>
-                    <button class="delete-board btn danger" data-id="${newBoard.id}" title="Удалить"><i class="fas fa-trash"></i></button>
+                    ${!board.isShared ? `<button class="share-board btn" data-id="${board.id}" title="Поделиться"><i class="fas fa-share-alt"></i></button>` : ''}
+                    ${!board.isShared ? `<button class="edit-board btn" data-id="${board.id}" title="Редактировать"><i class="fas fa-edit"></i></button>` : ''}
+                    ${!board.isShared ? `<button class="delete-board btn danger" data-id="${board.id}" title="Удалить"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
             `
-            
+
             boardElement.addEventListener('click', function(e) {
                 if (!e.target.closest('.board-actions')) {
-                    sessionStorage.setItem('currentBoard', JSON.stringify(newBoard))
+                    sessionStorage.setItem('currentBoard', JSON.stringify(board))
                     window.location.href = 'board.html'
                 }
             })
-            
-            const shareBtn = boardElement.querySelector('.share-board')
-            const editBtn = boardElement.querySelector('.edit-board')
-            const deleteBtn = boardElement.querySelector('.delete-board')
-            
-            shareBtn.addEventListener('click', function(e) {
-                e.stopPropagation()
-                openShareModal(newBoard.id)
-            })
-            
-            editBtn.addEventListener('click', function(e) {
-                e.stopPropagation()
-                editBoard(newBoard.id)
-            })
-            
-            deleteBtn.addEventListener('click', function(e) {
-                e.stopPropagation()
-                deleteBoard(newBoard.id)
-            })
-            
-            boardsContainer.prepend(boardElement)
-            document.getElementById('newBoardName').value = ''
-        } catch (error) {
-            console.error('Ошибка создания доски:', error)
-            alert('Не удалось создать доску: ' + error.message)
-        }
-    })
+
+            if (!board.isShared) {
+                const shareBtn = boardElement.querySelector('.share-board')
+                const editBtn = boardElement.querySelector('.edit-board')
+                const deleteBtn = boardElement.querySelector('.delete-board')
+
+                shareBtn.addEventListener('click', function(e) {
+                    e.stopPropagation()
+                    openShareModal(board.id)
+                })
+
+                editBtn.addEventListener('click', function(e) {
+                    e.stopPropagation()
+                    editBoard(board.id)
+                })
+
+                deleteBtn.addEventListener('click', function(e) {
+                    e.stopPropagation()
+                    deleteBoard(board.id)
+                })
+            }
+
+            boardsContainer.appendChild(boardElement)
+        })
+    } else {
+        boardsContainer.innerHTML = '<p>У вас пока нет досок. Создайте первую!</p>'
+    }
+}
 
     async function openShareModal(boardId) {
+        // Реализация модального окна для шаринга
         const modal = document.getElementById('shareModal')
         const closeBtn = modal.querySelector('.close')
         const shareBtn = document.getElementById('shareBtn')
@@ -315,38 +213,41 @@ document.addEventListener('DOMContentLoaded', async function() {
                 return
             }
             
-            try {
-                // Находим пользователя по email или username
-                const { data: userToShareWith, error: userError } = await supabase
-                    .from('users')
-                    .select('*')
-                    .or(`email.eq.${userToShare},username.eq.${userToShare}`)
-                    .neq('id', user.id)
-                    .maybeSingle()
+            // Находим пользователя по email или username
+            const { data: userToShareWith, error: userError } = await supabase
+                .from('users')
+                .select('*')
+                .or(`email.eq.${userToShare},username.eq.${userToShare}`)
+                .neq('id', user.id)
+                .single()
 
-                if (userError || !userToShareWith) {
-                    throw new Error('Пользователь не найден или вы пытаетесь поделиться с самим собой')
-                }
-
-                // Добавляем запись в shared_boards
-                const { error } = await supabase
-                    .from('shared_boards')
-                    .insert([
-                        { 
-                            board_id: boardId,
-                            user_id: userToShareWith.id
-                        }
-                    ])
-
-                if (error) throw error
-
-                alert(`Доска успешно расшарена с пользователем ${userToShareWith.name}`)
-                modal.style.display = 'none'
-                document.getElementById('shareUser').value = ''
-            } catch (error) {
-                console.error('Ошибка при совместном использовании доски:', error)
-                alert(error.message)
+            if (userError || !userToShareWith) {
+                alert('Пользователь не найден или вы пытаетесь поделиться с самим собой')
+                return
             }
+
+            // Добавляем запись в shared_boards
+            const { error } = await supabase
+                .from('shared_boards')
+                .insert([
+                    { 
+                        board_id: boardId,
+                        user_id: userToShareWith.id
+                    }
+                ])
+
+            if (error) {
+                if (error.code === '23505') {
+                    alert('Вы уже поделились этой доской с данным пользователем')
+                } else {
+                    alert(error.message)
+                }
+                return
+            }
+
+            alert(`Доска успешно расшарена с пользователем ${userToShareWith.name}`)
+            modal.style.display = 'none'
+            document.getElementById('shareUser').value = ''
         }
     }
 
@@ -356,19 +257,17 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const newColor = document.getElementById('newBoardColor').value
 
-        try {
-            const { error } = await supabase
-                .from('boards')
-                .update({ name: newName, color: newColor })
-                .eq('id', boardId)
+        const { error } = await supabase
+            .from('boards')
+            .update({ name: newName, color: newColor })
+            .eq('id', boardId)
 
-            if (error) throw error
-
-            loadBoards()
-        } catch (error) {
-            console.error('Ошибка редактирования доски:', error)
-            alert('Не удалось обновить доску: ' + error.message)
+        if (error) {
+            alert(error.message)
+            return
         }
+
+        loadBoards()
     }
 
     async function deleteBoard(boardId) {
@@ -376,18 +275,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             return
         }
 
-        try {
-            const { error } = await supabase
-                .from('boards')
-                .delete()
-                .eq('id', boardId)
+        const { error } = await supabase
+            .from('boards')
+            .delete()
+            .eq('id', boardId)
 
-            if (error) throw error
-
-            loadBoards()
-        } catch (error) {
-            console.error('Ошибка удаления доски:', error)
-            alert('Не удалось удалить доску: ' + error.message)
+        if (error) {
+            alert(error.message)
+            return
         }
+
+        loadBoards()
     }
 })
