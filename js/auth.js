@@ -1,12 +1,6 @@
 // Обновленный auth.js
 import { supabase } from './supabase.js'
 
-// В начале файла добавьте проверку
-if (!supabase) {
-  console.error('Supabase не загружен!');
-  alert('Ошибка загрузки приложения. Обновите страницу.');
-}
-
 document.addEventListener('DOMContentLoaded', function() {
     // Табы остаются без изменений
     const tabBtns = document.querySelectorAll('.tab-btn');
