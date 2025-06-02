@@ -1,13 +1,6 @@
 // Обновленный main.js
 import { supabase } from './supabase.js'
 
-console.log('Текущий пользователь:', user);
-if (!user) {
-  alert('Вы не авторизованы!');
-  window.location.href = 'index.html';
-  return;
-}
-
 document.addEventListener('DOMContentLoaded', async function() {
     // Проверка аутентификации
     const { data: { user } } = await supabase.auth.getUser()
