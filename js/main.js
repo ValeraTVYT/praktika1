@@ -1,12 +1,15 @@
+// Обновленный main.js
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', async function() {
+    // Проверка аутентификации
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
         window.location.href = 'index.html'
         return
     }
 
+    // Получаем данные пользователя из таблицы users
     const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -64,9 +67,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         const boardsContainer = document.getElementById('boardsContainer')
         boardsContainer.innerHTML = ''
         
+        // Получаем доски пользователя с количеством карточек
         const { data: userBoards, error: userBoardsError } = await supabase
             .from('boards')
-            .select('*, cards(count)')
+            .select(`
+                *,
+                cards:cards(count)
+            `)
             .eq('owner_id', user.id)
 
         if (userBoardsError) {
@@ -74,9 +81,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             return
         }
 
+        // Получаем общие доски с количеством карточек
         const { data: sharedBoards, error: sharedBoardsError } = await supabase
             .from('shared_boards')
-            .select('boards(*, cards(count))')
+            .select(`
+                boards:boards(
+                    *,
+                    cards:cards(count)
+                )
+            `)
             .eq('user_id', user.id)
 
         if (sharedBoardsError) {
@@ -85,11 +98,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         const allBoards = [
-            ...userBoards,
+            ...userBoards.map(b => ({ ...b, isShared: false })),
             ...sharedBoards.map(item => ({ ...item.boards, isShared: true }))
         ]
 
         if (allBoards.length > 0) {
+            // Для общих досок получаем информацию о владельце
             const sharedWithOwner = await Promise.all(
                 allBoards
                     .filter(b => b.isShared)
@@ -116,12 +130,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                 boardElement.innerHTML = `
                     <h3>${board.name}</h3>
                     ${board.isShared ? `<p><small>Владелец: ${board.ownerName}</small></p>` : ''}
-                    <p>Карточек: ${board.cards ? board.cards[0].count : 0}</p>
+                    <p>Карточек: ${board.cards[0].count}</p>
                     <div class="board-actions">
                         ${!board.isShared ? `<button class="share-board btn" data-id="${board.id}" title="Поделиться"><i class="fas fa-share-alt"></i></button>` : ''}
                         ${!board.isShared ? `<button class="edit-board btn" data-id="${board.id}" title="Редактировать"><i class="fas fa-edit"></i></button>` : ''}
                         ${!board.isShared ? `<button class="delete-board btn danger" data-id="${board.id}" title="Удалить"><i class="fas fa-trash"></i></button>` : ''}
-                    </div>
+                    </div>  
                 `
                 
                 boardElement.addEventListener('click', function(e) {

@@ -1,6 +1,8 @@
+// Обновленный board.js
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', async function() {
+    // Проверка аутентификации
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
         window.location.href = 'index.html'
@@ -13,8 +15,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         return
     }
 
-    const isOwner = currentBoard.owner_id === user.id
-
+    // Получаем данные пользователя
     const { data: userData } = await supabase
         .from('users')
         .select('*')
@@ -25,12 +26,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase()
     document.getElementById('boardTitle').textContent = currentBoard.name
     document.getElementById('boardTitle').style.color = currentBoard.color
-
-    // Скрываем кнопки редактирования/удаления если не владелец
-    if (!isOwner) {
-        document.getElementById('editBoardBtn').style.display = 'none'
-        document.getElementById('deleteBoardBtn').style.display = 'none'
-    }
 
     document.getElementById('logoutBtn').addEventListener('click', async function() {
         await supabase.auth.signOut()
@@ -52,11 +47,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     loadCards()
 
     document.getElementById('addCardBtn').addEventListener('click', async function() {
-        if (!isOwner) {
-            alert('Только владелец может добавлять карточки')
-            return
-        }
-
         const cardName = document.getElementById('newCardName').value.trim()
         const cardColor = document.getElementById('newCardColor').value
         
@@ -91,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         const { data: cards, error } = await supabase
             .from('cards')
-            .select('*, notes(count)')
+            .select('*, notes(*)')
             .eq('board_id', currentBoard.id)
 
         if (error) {
@@ -106,10 +96,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 cardElement.style.backgroundColor = card.color
                 cardElement.innerHTML = `
                     <h3>${card.name}</h3>
-                    <p>Заметок: ${card.notes ? card.notes[0].count : 0}</p>
+                    <p>Заметок: ${card.notes.length}</p>
                     <div class="card-actions">
-                        ${isOwner ? `<button class="edit-card btn" data-id="${card.id}" title="Редактировать"><i class="fas fa-edit"></i></button>` : ''}
-                        ${isOwner ? `<button class="delete-card btn danger" data-id="${card.id}" title="Удалить"><i class="fas fa-trash"></i></button>` : ''}
+                        <button class="edit-card btn" data-id="${card.id}" title="Редактировать"><i class="fas fa-edit"></i></button>
+                        <button class="delete-card btn danger" data-id="${card.id}" title="Удалить"><i class="fas fa-trash"></i></button>
                     </div>
                 `
                 
@@ -120,20 +110,18 @@ document.addEventListener('DOMContentLoaded', async function() {
                     }
                 })
 
-                if (isOwner) {
-                    const editBtn = cardElement.querySelector('.edit-card')
-                    const deleteBtn = cardElement.querySelector('.delete-card')
-                    
-                    editBtn.addEventListener('click', function(e) {
-                        e.stopPropagation()
-                        editCard(card.id)
-                    })
-                    
-                    deleteBtn.addEventListener('click', function(e) {
-                        e.stopPropagation()
-                        deleteCard(card.id)
-                    })
-                }
+                const editBtn = cardElement.querySelector('.edit-card')
+                const deleteBtn = cardElement.querySelector('.delete-card')
+                
+                editBtn.addEventListener('click', function(e) {
+                    e.stopPropagation()
+                    editCard(card.id)
+                })
+                
+                deleteBtn.addEventListener('click', function(e) {
+                    e.stopPropagation()
+                    deleteCard(card.id)
+                })
                 
                 cardsContainer.appendChild(cardElement)
             })
