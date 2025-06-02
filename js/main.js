@@ -1,14 +1,12 @@
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // Проверка аутентификации
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
         window.location.href = 'index.html'
         return
     }
 
-    // Получаем данные пользователя из таблицы users
     const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -66,10 +64,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         const boardsContainer = document.getElementById('boardsContainer')
         boardsContainer.innerHTML = ''
         
-        // Получаем доски пользователя
         const { data: userBoards, error: userBoardsError } = await supabase
             .from('boards')
-            .select('*')
+            .select('*, cards(count)')
             .eq('owner_id', user.id)
 
         if (userBoardsError) {
@@ -77,10 +74,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             return
         }
 
-        // Получаем общие доски
         const { data: sharedBoards, error: sharedBoardsError } = await supabase
             .from('shared_boards')
-            .select('boards(*)')
+            .select('boards(*, cards(count))')
             .eq('user_id', user.id)
 
         if (sharedBoardsError) {
@@ -94,7 +90,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         ]
 
         if (allBoards.length > 0) {
-            // Для общих досок получаем информацию о владельце
             const sharedWithOwner = await Promise.all(
                 allBoards
                     .filter(b => b.isShared)
@@ -104,7 +99,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                             .select('name')
                             .eq('id', board.owner_id)
                             .single()
-                        return { ...board, ownerName: owner?.name || 'Неизвестный' }
+                        return { ...board, ownerName: owner.name }
                     })
             )
 
@@ -115,20 +110,17 @@ document.addEventListener('DOMContentLoaded', async function() {
             const boardsToDisplay = [...userBoardsWithOwner, ...sharedWithOwner]
 
             boardsToDisplay.forEach(board => {
-                const isOwner = board.owner_id === user.id
-                const canEdit = isOwner || board.owner_id === user.id
-
                 const boardElement = document.createElement('div')
                 boardElement.className = 'board-item'
                 boardElement.style.backgroundColor = board.color
                 boardElement.innerHTML = `
                     <h3>${board.name}</h3>
                     ${board.isShared ? `<p><small>Владелец: ${board.ownerName}</small></p>` : ''}
-                    <p>Карточек: ${board.cards ? board.cards.length : 0}</p>
+                    <p>Карточек: ${board.cards ? board.cards[0].count : 0}</p>
                     <div class="board-actions">
-                        ${isOwner ? `<button class="share-board btn" data-id="${board.id}" title="Поделиться"><i class="fas fa-share-alt"></i></button>` : ''}
-                        ${canEdit ? `<button class="edit-board btn" data-id="${board.id}" title="Редактировать"><i class="fas fa-edit"></i></button>` : ''}
-                        ${isOwner ? `<button class="delete-board btn danger" data-id="${board.id}" title="Удалить"><i class="fas fa-trash"></i></button>` : ''}
+                        ${!board.isShared ? `<button class="share-board btn" data-id="${board.id}" title="Поделиться"><i class="fas fa-share-alt"></i></button>` : ''}
+                        ${!board.isShared ? `<button class="edit-board btn" data-id="${board.id}" title="Редактировать"><i class="fas fa-edit"></i></button>` : ''}
+                        ${!board.isShared ? `<button class="delete-board btn danger" data-id="${board.id}" title="Удалить"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
                 `
                 
@@ -139,30 +131,24 @@ document.addEventListener('DOMContentLoaded', async function() {
                     }
                 })
                 
-                if (isOwner) {
+                if (!board.isShared) {
                     const shareBtn = boardElement.querySelector('.share-board')
                     const editBtn = boardElement.querySelector('.edit-board')
                     const deleteBtn = boardElement.querySelector('.delete-board')
                     
-                    shareBtn?.addEventListener('click', function(e) {
+                    shareBtn.addEventListener('click', function(e) {
                         e.stopPropagation()
                         openShareModal(board.id)
                     })
                     
-                    editBtn?.addEventListener('click', function(e) {
+                    editBtn.addEventListener('click', function(e) {
                         e.stopPropagation()
                         editBoard(board.id)
                     })
                     
-                    deleteBtn?.addEventListener('click', function(e) {
+                    deleteBtn.addEventListener('click', function(e) {
                         e.stopPropagation()
                         deleteBoard(board.id)
-                    })
-                } else if (canEdit) {
-                    const editBtn = boardElement.querySelector('.edit-board')
-                    editBtn?.addEventListener('click', function(e) {
-                        e.stopPropagation()
-                        editBoard(board.id)
                     })
                 }
                 
@@ -174,6 +160,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function openShareModal(boardId) {
+        // Реализация модального окна для шаринга
         const modal = document.getElementById('shareModal')
         const closeBtn = modal.querySelector('.close')
         const shareBtn = document.getElementById('shareBtn')

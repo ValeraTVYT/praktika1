@@ -1,7 +1,6 @@
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // Проверка аутентификации
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
         window.location.href = 'index.html'
@@ -14,22 +13,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         return
     }
 
-    // Проверяем права доступа к карточке
-    const { data: boardAccess, error: accessError } = await supabase
-        .from('boards')
-        .select('owner_id')
-        .eq('id', currentCard.board_id)
-        .single()
+    const currentBoard = JSON.parse(sessionStorage.getItem('currentBoard'))
+    const isOwner = currentBoard && currentBoard.owner_id === user.id
 
-    if (accessError || !boardAccess) {
-        alert('Ошибка доступа к карточке')
-        window.location.href = 'main.html'
-        return
-    }
-
-    const isOwner = boardAccess.owner_id === user.id
-
-    // Получаем данные пользователя
     const { data: userData } = await supabase
         .from('users')
         .select('*')
@@ -40,6 +26,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase()
     document.getElementById('cardTitle').textContent = currentCard.name
     document.getElementById('cardTitle').style.color = currentCard.color
+
+    // Скрываем кнопки редактирования/удаления если не владелец
+    if (!isOwner) {
+        document.getElementById('editCardBtn').style.display = 'none'
+        document.getElementById('deleteCardBtn').style.display = 'none'
+        document.getElementById('addNoteBtn').style.display = 'none'
+        document.getElementById('newNoteText').disabled = true
+    }
 
     document.getElementById('logoutBtn').addEventListener('click', async function() {
         await supabase.auth.signOut()
@@ -54,14 +48,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         window.location.href = 'board.html'
     })
 
-    // Показываем кнопки редактирования только для владельца
-    document.getElementById('editCardBtn').style.display = isOwner ? 'block' : 'none'
-    document.getElementById('deleteCardBtn').style.display = isOwner ? 'block' : 'none'
-
-    if (isOwner) {
-        document.getElementById('editCardBtn').addEventListener('click', editCard)
-        document.getElementById('deleteCardBtn').addEventListener('click', deleteCard)
-    }
+    document.getElementById('editCardBtn').addEventListener('click', editCard)
+    document.getElementById('deleteCardBtn').addEventListener('click', deleteCard)
 
     loadNotes()
 
@@ -90,10 +78,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             return
         }
 
-        // Обновляем текущую карточку в sessionStorage
         const { data: updatedCard } = await supabase
             .from('cards')
-            .select('*, notes(*)')
+            .select('*, notes(count)')
             .eq('id', currentCard.id)
             .single()
 
@@ -125,24 +112,28 @@ document.addEventListener('DOMContentLoaded', async function() {
                 noteElement.innerHTML = `
                     <p>${note.text}</p>
                     <small>Обновлено: ${new Date(note.updated_at).toLocaleString()}</small>
+                    ${isOwner ? `
                     <div class="note-actions">
                         <button class="edit-note btn" data-id="${note.id}"><i class="fas fa-edit"></i> Редактировать</button>
                         <button class="delete-note btn danger" data-id="${note.id}"><i class="fas fa-trash"></i> Удалить</button>
                     </div>
+                    ` : ''}
                 `
                 
                 notesContainer.appendChild(noteElement)
 
-                const editBtn = noteElement.querySelector('.edit-note')
-                const deleteBtn = noteElement.querySelector('.delete-note')
-                
-                editBtn.addEventListener('click', function() {
-                    editNote(note.id)
-                })
-                
-                deleteBtn.addEventListener('click', function() {
-                    deleteNote(note.id)
-                })
+                if (isOwner) {
+                    const editBtn = noteElement.querySelector('.edit-note')
+                    const deleteBtn = noteElement.querySelector('.delete-note')
+                    
+                    editBtn.addEventListener('click', function() {
+                        editNote(note.id)
+                    })
+                    
+                    deleteBtn.addEventListener('click', function() {
+                        deleteNote(note.id)
+                    })
+                }
             })
         } else {
             notesContainer.innerHTML = '<p>В этой карточке пока нет заметок. Создайте первую!</p>'
@@ -168,7 +159,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         sessionStorage.setItem('currentCard', JSON.stringify({ ...currentCard, ...data[0] }))
         document.getElementById('cardTitle').textContent = data[0].name
-        document.getElementById('cardTitle').style.color = data[0].color
+        document.getElementById('cardTitle').style.color = '#333'
     }
 
     async function deleteCard() {
@@ -213,10 +204,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             return
         }
 
-        // Обновляем текущую карточку в sessionStorage
         const { data: updatedCard } = await supabase
             .from('cards')
-            .select('*, notes(*)')
+            .select('*, notes(count)')
             .eq('id', currentCard.id)
             .single()
 
@@ -239,10 +229,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             return
         }
 
-        // Обновляем текущую карточку в sessionStorage
         const { data: updatedCard } = await supabase
             .from('cards')
-            .select('*, notes(*)')
+            .select('*, notes(count)')
             .eq('id', currentCard.id)
             .single()
 

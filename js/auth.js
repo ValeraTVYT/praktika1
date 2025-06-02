@@ -1,3 +1,4 @@
+// Обновленный auth.js
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -21,14 +22,11 @@ document.addEventListener('DOMContentLoaded', function() {
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const loginIdentifier = document.getElementById('loginUsername').value.trim();
+            const email = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
 
-            // Проверяем, является ли ввод email'ом
-            const isEmail = loginIdentifier.includes('@');
-
             const { data, error } = await supabase.auth.signInWithPassword({
-                [isEmail ? 'email' : 'username']: loginIdentifier,
+                email,
                 password
             });
 
@@ -37,19 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Получаем полные данные пользователя из таблицы users
-            const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', data.user.id)
-                .single();
-
-            if (userError) {
-                alert(userError.message);
-                return;
-            }
-
-            sessionStorage.setItem('currentUser', JSON.stringify(userData));
+            sessionStorage.setItem('currentUser', JSON.stringify(data.user));
             window.location.href = 'main.html';
         });
     }
@@ -111,10 +97,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            alert('Регистрация успешна! Проверьте вашу почту для подтверждения.');
-            registerForm.reset();
-            // Переключаем на вкладку входа
-            document.querySelector('[data-tab="login"]').click();
+            sessionStorage.setItem('currentUser', JSON.stringify(userData[0]));
+            window.location.href = 'main.html';
         });
     }
 
