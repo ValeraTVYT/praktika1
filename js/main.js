@@ -1,10 +1,17 @@
-// Обновленный main.js
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', async function() {
     // Проверка аутентификации
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    
+    if (authError) {
+        console.error('Ошибка аутентификации:', authError)
+        window.location.href = 'index.html'
+        return
+    }
+    
+    if (!user) {
+        console.log('Пользователь не аутентифицирован')
         window.location.href = 'index.html'
         return
     }
@@ -14,16 +21,29 @@ document.addEventListener('DOMContentLoaded', async function() {
         .from('users')
         .select('*')
         .eq('id', user.id)
-        .maybeSingle()
+        .maybeSingle()  // Используем maybeSingle вместо single
 
-    if (userError || !userData) {
+    if (userError) {
         console.error('Ошибка загрузки данных пользователя:', userError)
+        // Создаем запись пользователя, если ее нет
+        await createUserProfile(user)
+        window.location.reload()  // Перезагружаем страницу после создания профиля
         return
     }
 
-    document.getElementById('userName').textContent = userData.name
-    document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase()
+    if (!userData) {
+        console.log('Профиль пользователя не найден, создаем новый')
+        // Создаем запись пользователя, если ее нет
+        await createUserProfile(user)
+        window.location.reload()  // Перезагружаем страницу после создания профиля
+        return
+    }
 
+    // Отображаем данные пользователя
+    document.getElementById('userName').textContent = userData.name || 'Пользователь'
+    document.getElementById('userAvatar').textContent = (userData.name?.charAt(0) || 'П').toUpperCase()
+
+    // Остальной код остается без изменений...
     document.getElementById('logoutBtn').addEventListener('click', async function() {
         await supabase.auth.signOut()
         sessionStorage.removeItem('currentUser')
@@ -31,6 +51,27 @@ document.addEventListener('DOMContentLoaded', async function() {
         sessionStorage.removeItem('currentCard')
         window.location.href = 'index.html'
     })
+
+    // Функция для создания профиля пользователя
+    async function createUserProfile(user) {
+        try {
+            const { error } = await supabase
+                .from('users')
+                .insert([
+                    {
+                        id: user.id,
+                        email: user.email,
+                        name: user.email.split('@')[0] || 'Пользователь',
+                        created_at: new Date().toISOString()
+                    }
+                ])
+            
+            if (error) throw error
+            console.log('Профиль пользователя успешно создан')
+        } catch (error) {
+            console.error('Ошибка при создании профиля пользователя:', error)
+        }
+    }
 
     loadBoards()
 
