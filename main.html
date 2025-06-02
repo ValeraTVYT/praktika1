@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Note Board - Главная</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <header>
+        <div class="user-info">
+            <div class="user-avatar" id="userAvatar">U</div>
+            <span id="userName">Пользователь</span>
+            <button id="logoutBtn" class="btn"><i class="fas fa-sign-out-alt"></i> Выйти</button>
+        </div>
+    </header>
+    
+    <main>
+        <h1>Мои доски</h1>
+        
+        <div class="add-board">
+            <input type="text" id="newBoardName" placeholder="Название новой доски">
+            <input type="color" id="newBoardColor" value="#ffffff">
+            <button id="addBoardBtn" class="btn"><i class="fas fa-plus"></i> Добавить доску</button>
+        </div>
+        
+        <div class="boards-container" id="boardsContainer">
+        </div>
+        
+        <div id="shareModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h3>Добавить участника</h3>
+                <div class="form-group">
+                    <label for="shareUser">Логин или Email пользователя:</label>
+                    <input type="text" id="shareUser" required>
+                </div>
+                <button id="shareBtn" class="btn">Добавить</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/auth.js"></script>
+</body>
+</html>
