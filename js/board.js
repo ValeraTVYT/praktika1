@@ -1,4 +1,3 @@
-// Обновленный board.js
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -11,6 +10,19 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const currentBoard = JSON.parse(sessionStorage.getItem('currentBoard'))
     if (!currentBoard) {
+        window.location.href = 'main.html'
+        return
+    }
+
+    // Проверяем права доступа к доске
+    const { data: boardAccess, error: accessError } = await supabase
+        .from('boards')
+        .select('owner_id')
+        .eq('id', currentBoard.id)
+        .single()
+
+    if (accessError || (!boardAccess || (boardAccess.owner_id !== user.id && !currentBoard.isShared))) {
+        alert('У вас нет прав доступа к этой доске')
         window.location.href = 'main.html'
         return
     }
@@ -41,8 +53,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         window.location.href = 'main.html'
     })
 
-    document.getElementById('editBoardBtn').addEventListener('click', editBoard)
-    document.getElementById('deleteBoardBtn').addEventListener('click', deleteBoard)
+    // Показываем кнопки редактирования только для владельца
+    const isOwner = boardAccess.owner_id === user.id
+    document.getElementById('editBoardBtn').style.display = isOwner ? 'block' : 'none'
+    document.getElementById('deleteBoardBtn').style.display = isOwner ? 'block' : 'none'
+
+    if (isOwner) {
+        document.getElementById('editBoardBtn').addEventListener('click', editBoard)
+        document.getElementById('deleteBoardBtn').addEventListener('click', deleteBoard)
+    }
 
     loadCards()
 
@@ -149,7 +168,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         sessionStorage.setItem('currentBoard', JSON.stringify(data[0]))
         document.getElementById('boardTitle').textContent = data[0].name
-        document.getElementById('boardTitle').style.color = '#333'
+        document.getElementById('boardTitle').style.color = data[0].color
     }
 
     async function deleteBoard() {

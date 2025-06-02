@@ -1,4 +1,3 @@
-// Обновленный auth.js
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -22,11 +21,14 @@ document.addEventListener('DOMContentLoaded', function() {
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const email = document.getElementById('loginUsername').value;
+            const loginIdentifier = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
 
+            // Проверяем, является ли ввод email'ом
+            const isEmail = loginIdentifier.includes('@');
+
             const { data, error } = await supabase.auth.signInWithPassword({
-                email,
+                [isEmail ? 'email' : 'username']: loginIdentifier,
                 password
             });
 
@@ -35,7 +37,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            sessionStorage.setItem('currentUser', JSON.stringify(data.user));
+            // Получаем полные данные пользователя из таблицы users
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', data.user.id)
+                .single();
+
+            if (userError) {
+                alert(userError.message);
+                return;
+            }
+
+            sessionStorage.setItem('currentUser', JSON.stringify(userData));
             window.location.href = 'main.html';
         });
     }
@@ -97,8 +111,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            sessionStorage.setItem('currentUser', JSON.stringify(userData[0]));
-            window.location.href = 'main.html';
+            alert('Регистрация успешна! Проверьте вашу почту для подтверждения.');
+            registerForm.reset();
+            // Переключаем на вкладку входа
+            document.querySelector('[data-tab="login"]').click();
         });
     }
 

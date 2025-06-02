@@ -1,4 +1,3 @@
-// Обновленный main.js
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -105,7 +104,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                             .select('name')
                             .eq('id', board.owner_id)
                             .single()
-                        return { ...board, ownerName: owner.name }
+                        return { ...board, ownerName: owner?.name || 'Неизвестный' }
                     })
             )
 
@@ -116,8 +115,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             const boardsToDisplay = [...userBoardsWithOwner, ...sharedWithOwner]
 
             boardsToDisplay.forEach(board => {
-                // Остальной код создания элементов доски остается таким же
-                // Только теперь используем данные из Supabase
+                const isOwner = board.owner_id === user.id
+                const canEdit = isOwner || board.owner_id === user.id
+
                 const boardElement = document.createElement('div')
                 boardElement.className = 'board-item'
                 boardElement.style.backgroundColor = board.color
@@ -126,9 +126,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                     ${board.isShared ? `<p><small>Владелец: ${board.ownerName}</small></p>` : ''}
                     <p>Карточек: ${board.cards ? board.cards.length : 0}</p>
                     <div class="board-actions">
-                        ${!board.isShared ? `<button class="share-board btn" data-id="${board.id}" title="Поделиться"><i class="fas fa-share-alt"></i></button>` : ''}
-                        ${!board.isShared ? `<button class="edit-board btn" data-id="${board.id}" title="Редактировать"><i class="fas fa-edit"></i></button>` : ''}
-                        ${!board.isShared ? `<button class="delete-board btn danger" data-id="${board.id}" title="Удалить"><i class="fas fa-trash"></i></button>` : ''}
+                        ${isOwner ? `<button class="share-board btn" data-id="${board.id}" title="Поделиться"><i class="fas fa-share-alt"></i></button>` : ''}
+                        ${canEdit ? `<button class="edit-board btn" data-id="${board.id}" title="Редактировать"><i class="fas fa-edit"></i></button>` : ''}
+                        ${isOwner ? `<button class="delete-board btn danger" data-id="${board.id}" title="Удалить"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
                 `
                 
@@ -139,24 +139,30 @@ document.addEventListener('DOMContentLoaded', async function() {
                     }
                 })
                 
-                if (!board.isShared) {
+                if (isOwner) {
                     const shareBtn = boardElement.querySelector('.share-board')
                     const editBtn = boardElement.querySelector('.edit-board')
                     const deleteBtn = boardElement.querySelector('.delete-board')
                     
-                    shareBtn.addEventListener('click', function(e) {
+                    shareBtn?.addEventListener('click', function(e) {
                         e.stopPropagation()
                         openShareModal(board.id)
                     })
                     
-                    editBtn.addEventListener('click', function(e) {
+                    editBtn?.addEventListener('click', function(e) {
                         e.stopPropagation()
                         editBoard(board.id)
                     })
                     
-                    deleteBtn.addEventListener('click', function(e) {
+                    deleteBtn?.addEventListener('click', function(e) {
                         e.stopPropagation()
                         deleteBoard(board.id)
+                    })
+                } else if (canEdit) {
+                    const editBtn = boardElement.querySelector('.edit-board')
+                    editBtn?.addEventListener('click', function(e) {
+                        e.stopPropagation()
+                        editBoard(board.id)
                     })
                 }
                 
@@ -168,7 +174,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function openShareModal(boardId) {
-        // Реализация модального окна для шаринга
         const modal = document.getElementById('shareModal')
         const closeBtn = modal.querySelector('.close')
         const shareBtn = document.getElementById('shareBtn')
