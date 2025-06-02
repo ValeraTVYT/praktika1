@@ -1,8 +1,7 @@
-// Обновленный auth.js
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Табы остаются без изменений
+    // Табы
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
     
@@ -25,18 +24,29 @@ document.addEventListener('DOMContentLoaded', function() {
             const email = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
 
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password
-            });
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
 
-            if (error) {
+                if (error) throw error;
+
+                // Получаем полные данные пользователя
+                const { data: userData, error: userError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+
+                if (userError) throw userError;
+
+                sessionStorage.setItem('currentUser', JSON.stringify(userData));
+                window.location.href = 'main.html';
+            } catch (error) {
                 alert(error.message);
-                return;
+                console.error(error);
             }
-
-            sessionStorage.setItem('currentUser', JSON.stringify(data.user));
-            window.location.href = 'main.html';
         });
     }
 
@@ -62,43 +72,52 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Регистрация в Supabase Auth
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: {
-                        name,
-                        username
+            try {
+                // 1. Регистрация в Supabase Auth
+                const { data: authData, error: authError } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            name,
+                            username
+                        }
                     }
-                }
-            });
+                });
 
-            if (authError) {
-                alert(authError.message);
-                return;
+                if (authError) throw authError;
+
+                // 2. Создание записи в таблице users
+                const { data: userData, error: userError } = await supabase
+                    .from('users')
+                    .insert([
+                        { 
+                            id: authData.user.id,
+                            name,
+                            email,
+                            username 
+                        }
+                    ])
+                    .select();
+
+                if (userError) throw userError;
+
+                // 3. Автоматический вход после регистрации
+                const { error: loginError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (loginError) throw loginError;
+
+                // Сохраняем данные пользователя и перенаправляем
+                sessionStorage.setItem('currentUser', JSON.stringify(userData[0]));
+                window.location.href = 'main.html';
+                
+            } catch (error) {
+                alert(error.message);
+                console.error(error);
             }
-
-            // Создание записи в таблице users
-            const { data: userData, error: userError } = await supabase
-                .from('users')
-                .insert([
-                    { 
-                        id: authData.user.id,
-                        name,
-                        email,
-                        username 
-                    }
-                ])
-                .select();
-
-            if (userError) {
-                alert(userError.message);
-                return;
-            }
-
-            sessionStorage.setItem('currentUser', JSON.stringify(userData[0]));
-            window.location.href = 'main.html';
         });
     }
 
@@ -110,17 +129,19 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const email = document.getElementById('resetEmail').value;
             
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: 'https://your-site.com/reset-password.html'
-            });
-            
-            if (error) {
+            try {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin + '/reset-password.html'
+                });
+                
+                if (error) throw error;
+                
+                alert('На ваш email отправлена ссылка для сброса пароля');
+                resetForm.reset();
+            } catch (error) {
                 alert(error.message);
-                return;
+                console.error(error);
             }
-            
-            alert('На ваш email отправлена ссылка для сброса пароля');
-            resetForm.reset();
         });
     }
 });
