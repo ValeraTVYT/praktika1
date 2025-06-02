@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('newBoardName').value = ''
     })
 
-    async function loadBoards() {
+   async function loadBoards() {
         const boardsContainer = document.getElementById('boardsContainer')
         boardsContainer.innerHTML = ''
         
@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             .from('boards')
             .select(`
                 *,
-                cards:cards(count)
+                cards(count)
             `)
             .eq('owner_id', user.id)
 
@@ -85,9 +85,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         const { data: sharedBoards, error: sharedBoardsError } = await supabase
             .from('shared_boards')
             .select(`
-                boards:boards(
+                boards(
                     *,
-                    cards:cards(count)
+                    cards(count)
                 )
             `)
             .eq('user_id', user.id)
@@ -97,9 +97,18 @@ document.addEventListener('DOMContentLoaded', async function() {
             return
         }
 
+        // Формируем массив всех досок
         const allBoards = [
-            ...userBoards.map(b => ({ ...b, isShared: false })),
-            ...sharedBoards.map(item => ({ ...item.boards, isShared: true }))
+            ...(userBoards || []).map(b => ({ 
+                ...b, 
+                isShared: false,
+                cards_count: b.cards[0]?.count || 0
+            })),
+            ...(sharedBoards || []).map(item => ({ 
+                ...item.boards, 
+                isShared: true,
+                cards_count: item.boards.cards[0]?.count || 0
+            }))
         ]
 
         if (allBoards.length > 0) {
@@ -113,7 +122,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                             .select('name')
                             .eq('id', board.owner_id)
                             .single()
-                        return { ...board, ownerName: owner.name }
+                        return { ...board, ownerName: owner?.name || 'Неизвестный' }
                     })
             )
 
@@ -130,12 +139,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                 boardElement.innerHTML = `
                     <h3>${board.name}</h3>
                     ${board.isShared ? `<p><small>Владелец: ${board.ownerName}</small></p>` : ''}
-                    <p>Карточек: ${board.cards[0].count}</p>
+                    <p>Карточек: ${board.cards_count}</p>
                     <div class="board-actions">
                         ${!board.isShared ? `<button class="share-board btn" data-id="${board.id}" title="Поделиться"><i class="fas fa-share-alt"></i></button>` : ''}
                         ${!board.isShared ? `<button class="edit-board btn" data-id="${board.id}" title="Редактировать"><i class="fas fa-edit"></i></button>` : ''}
                         ${!board.isShared ? `<button class="delete-board btn danger" data-id="${board.id}" title="Удалить"><i class="fas fa-trash"></i></button>` : ''}
-                    </div>  
+                    </div>
                 `
                 
                 boardElement.addEventListener('click', function(e) {
@@ -150,17 +159,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const editBtn = boardElement.querySelector('.edit-board')
                     const deleteBtn = boardElement.querySelector('.delete-board')
                     
-                    shareBtn.addEventListener('click', function(e) {
+                    shareBtn?.addEventListener('click', function(e) {
                         e.stopPropagation()
                         openShareModal(board.id)
                     })
                     
-                    editBtn.addEventListener('click', function(e) {
+                    editBtn?.addEventListener('click', function(e) {
                         e.stopPropagation()
                         editBoard(board.id)
                     })
                     
-                    deleteBtn.addEventListener('click', function(e) {
+                    deleteBtn?.addEventListener('click', function(e) {
                         e.stopPropagation()
                         deleteBoard(board.id)
                     })
@@ -172,6 +181,89 @@ document.addEventListener('DOMContentLoaded', async function() {
             boardsContainer.innerHTML = '<p>У вас пока нет досок. Создайте первую!</p>'
         }
     }
+
+    // Обработчик создания доски
+    document.getElementById('addBoardBtn').addEventListener('click', async function() {
+        const boardName = document.getElementById('newBoardName').value.trim()
+        const boardColor = document.getElementById('newBoardColor').value
+        
+        if (!boardName) {
+            alert('Введите название доски')
+            return
+        }
+
+        const { data, error } = await supabase
+            .from('boards')
+            .insert([
+                { 
+                    name: boardName,
+                    color: boardColor,
+                    owner_id: user.id
+                }
+            ])
+            .select()
+
+        if (error) {
+            alert(error.message)
+            return
+        }
+
+        // После создания доски добавляем ее в список с нулевым количеством карточек
+        const newBoard = {
+            ...data[0],
+            isShared: false,
+            cards_count: 0,
+            ownerName: userData.name
+        }
+
+        // Обновляем интерфейс без перезагрузки всех досок
+        const boardsContainer = document.getElementById('boardsContainer')
+        if (boardsContainer.innerHTML.includes('пока нет досок')) {
+            boardsContainer.innerHTML = ''
+        }
+
+        const boardElement = document.createElement('div')
+        boardElement.className = 'board-item'
+        boardElement.style.backgroundColor = newBoard.color
+        boardElement.innerHTML = `
+            <h3>${newBoard.name}</h3>
+            <p>Карточек: ${newBoard.cards_count}</p>
+            <div class="board-actions">
+                <button class="share-board btn" data-id="${newBoard.id}" title="Поделиться"><i class="fas fa-share-alt"></i></button>
+                <button class="edit-board btn" data-id="${newBoard.id}" title="Редактировать"><i class="fas fa-edit"></i></button>
+                <button class="delete-board btn danger" data-id="${newBoard.id}" title="Удалить"><i class="fas fa-trash"></i></button>
+            </div>
+        `
+        
+        boardElement.addEventListener('click', function(e) {
+            if (!e.target.closest('.board-actions')) {
+                sessionStorage.setItem('currentBoard', JSON.stringify(newBoard))
+                window.location.href = 'board.html'
+            }
+        })
+        
+        const shareBtn = boardElement.querySelector('.share-board')
+        const editBtn = boardElement.querySelector('.edit-board')
+        const deleteBtn = boardElement.querySelector('.delete-board')
+        
+        shareBtn.addEventListener('click', function(e) {
+            e.stopPropagation()
+            openShareModal(newBoard.id)
+        })
+        
+        editBtn.addEventListener('click', function(e) {
+            e.stopPropagation()
+            editBoard(newBoard.id)
+        })
+        
+        deleteBtn.addEventListener('click', function(e) {
+            e.stopPropagation()
+            deleteBoard(newBoard.id)
+        })
+        
+        boardsContainer.prepend(boardElement)
+        document.getElementById('newBoardName').value = ''
+    })
 
     async function openShareModal(boardId) {
         // Реализация модального окна для шаринга
