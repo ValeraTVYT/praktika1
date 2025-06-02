@@ -1,4 +1,3 @@
-// Обновленный board.js
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -22,16 +21,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         .eq('id', user.id)
         .single()
 
+    // Проверяем, является ли пользователь владельцем доски
+    const isOwner = currentBoard.owner_id === user.id
+
     document.getElementById('userName').textContent = userData.name
     document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase()
     document.getElementById('boardTitle').textContent = currentBoard.name
     document.getElementById('boardTitle').style.color = currentBoard.color
 
+    // Скрываем кнопки управления доской, если пользователь не владелец
+    document.getElementById('editBoardBtn').style.display = isOwner ? 'block' : 'none'
+    document.getElementById('deleteBoardBtn').style.display = isOwner ? 'block' : 'none'
+
     document.getElementById('logoutBtn').addEventListener('click', async function() {
         await supabase.auth.signOut()
-        sessionStorage.removeItem('currentUser')
-        sessionStorage.removeItem('currentBoard')
-        sessionStorage.removeItem('currentCard')
+        sessionStorage.clear()
         window.location.href = 'index.html'
     })
 
@@ -41,12 +45,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         window.location.href = 'main.html'
     })
 
-    document.getElementById('editBoardBtn').addEventListener('click', editBoard)
-    document.getElementById('deleteBoardBtn').addEventListener('click', deleteBoard)
+    if (isOwner) {
+        document.getElementById('editBoardBtn').addEventListener('click', editBoard)
+        document.getElementById('deleteBoardBtn').addEventListener('click', deleteBoard)
+    }
 
     loadCards()
 
     document.getElementById('addCardBtn').addEventListener('click', async function() {
+        if (!isOwner) {
+            alert('Только владелец может создавать карточки')
+            return
+        }
+
         const cardName = document.getElementById('newCardName').value.trim()
         const cardColor = document.getElementById('newCardColor').value
         
@@ -61,7 +72,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 { 
                     name: cardName,
                     color: cardColor,
-                    board_id: currentBoard.id
+                    board_id: currentBoard.id,
+                    owner_id: currentBoard.owner_id
                 }
             ])
             .select()
@@ -94,12 +106,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const cardElement = document.createElement('div')
                 cardElement.className = 'card-item'
                 cardElement.style.backgroundColor = card.color
+                
+                // Проверяем, является ли пользователь владельцем карточки
+                const canEditCard = card.owner_id === user.id
+                
                 cardElement.innerHTML = `
                     <h3>${card.name}</h3>
                     <p>Заметок: ${card.notes.length}</p>
                     <div class="card-actions">
-                        <button class="edit-card btn" data-id="${card.id}" title="Редактировать"><i class="fas fa-edit"></i></button>
-                        <button class="delete-card btn danger" data-id="${card.id}" title="Удалить"><i class="fas fa-trash"></i></button>
+                        ${canEditCard ? `<button class="edit-card btn" data-id="${card.id}" title="Редактировать"><i class="fas fa-edit"></i></button>` : ''}
+                        ${canEditCard ? `<button class="delete-card btn danger" data-id="${card.id}" title="Удалить"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
                 `
                 
@@ -110,23 +126,25 @@ document.addEventListener('DOMContentLoaded', async function() {
                     }
                 })
 
-                const editBtn = cardElement.querySelector('.edit-card')
-                const deleteBtn = cardElement.querySelector('.delete-card')
-                
-                editBtn.addEventListener('click', function(e) {
-                    e.stopPropagation()
-                    editCard(card.id)
-                })
-                
-                deleteBtn.addEventListener('click', function(e) {
-                    e.stopPropagation()
-                    deleteCard(card.id)
-                })
+                if (canEditCard) {
+                    const editBtn = cardElement.querySelector('.edit-card')
+                    const deleteBtn = cardElement.querySelector('.delete-card')
+                    
+                    editBtn.addEventListener('click', function(e) {
+                        e.stopPropagation()
+                        editCard(card.id)
+                    })
+                    
+                    deleteBtn.addEventListener('click', function(e) {
+                        e.stopPropagation()
+                        deleteCard(card.id)
+                    })
+                }
                 
                 cardsContainer.appendChild(cardElement)
             })
         } else {
-            cardsContainer.innerHTML = '<p>В этой доске пока нет карточек. Создайте первую!</p>'
+            cardsContainer.innerHTML = '<p>В этой доске пока нет карточек</p>'
         }
     }
 

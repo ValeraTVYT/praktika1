@@ -1,4 +1,3 @@
-// main.js
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', async function () {
@@ -26,9 +25,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     document.getElementById('logoutBtn').addEventListener('click', async function () {
         await supabase.auth.signOut()
-        sessionStorage.removeItem('currentUser')
-        sessionStorage.removeItem('currentBoard')
-        sessionStorage.removeItem('currentCard')
+        sessionStorage.clear()
         window.location.href = 'index.html'
     })
 

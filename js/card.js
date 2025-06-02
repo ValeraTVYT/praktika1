@@ -1,4 +1,3 @@
-// Обновленный card.js
 import { supabase } from './supabase.js'
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -22,16 +21,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         .eq('id', user.id)
         .single()
 
+    // Проверяем, является ли пользователь владельцем карточки
+    const isOwner = currentCard.owner_id === user.id
+
     document.getElementById('userName').textContent = userData.name
     document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase()
     document.getElementById('cardTitle').textContent = currentCard.name
     document.getElementById('cardTitle').style.color = currentCard.color
 
+    // Скрываем кнопки управления карточкой, если пользователь не владелец
+    document.getElementById('editCardBtn').style.display = isOwner ? 'block' : 'none'
+    document.getElementById('deleteCardBtn').style.display = isOwner ? 'block' : 'none'
+
     document.getElementById('logoutBtn').addEventListener('click', async function() {
         await supabase.auth.signOut()
-        sessionStorage.removeItem('currentUser')
-        sessionStorage.removeItem('currentBoard')
-        sessionStorage.removeItem('currentCard')
+        sessionStorage.clear()
         window.location.href = 'index.html'
     })
 
@@ -40,8 +44,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         window.location.href = 'board.html'
     })
 
-    document.getElementById('editCardBtn').addEventListener('click', editCard)
-    document.getElementById('deleteCardBtn').addEventListener('click', deleteCard)
+    if (isOwner) {
+        document.getElementById('editCardBtn').addEventListener('click', editCard)
+        document.getElementById('deleteCardBtn').addEventListener('click', deleteCard)
+    }
 
     loadNotes()
 
@@ -60,7 +66,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 { 
                     text: noteText,
                     color: noteColor,
-                    card_id: currentCard.id
+                    card_id: currentCard.id,
+                    user_id: user.id
                 }
             ])
             .select()
@@ -102,30 +109,36 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const noteElement = document.createElement('div')
                 noteElement.className = 'note-item'
                 noteElement.style.backgroundColor = note.color
+                
+                // Проверяем, является ли пользователь автором заметки
+                const canEditNote = note.user_id === user.id
+                
                 noteElement.innerHTML = `
                     <p>${note.text}</p>
                     <small>Обновлено: ${new Date(note.updated_at).toLocaleString()}</small>
                     <div class="note-actions">
-                        <button class="edit-note btn" data-id="${note.id}"><i class="fas fa-edit"></i> Редактировать</button>
-                        <button class="delete-note btn danger" data-id="${note.id}"><i class="fas fa-trash"></i> Удалить</button>
+                        ${canEditNote ? `<button class="edit-note btn" data-id="${note.id}"><i class="fas fa-edit"></i> Редактировать</button>` : ''}
+                        ${canEditNote ? `<button class="delete-note btn danger" data-id="${note.id}"><i class="fas fa-trash"></i> Удалить</button>` : ''}
                     </div>
                 `
                 
                 notesContainer.appendChild(noteElement)
 
-                const editBtn = noteElement.querySelector('.edit-note')
-                const deleteBtn = noteElement.querySelector('.delete-note')
-                
-                editBtn.addEventListener('click', function() {
-                    editNote(note.id)
-                })
-                
-                deleteBtn.addEventListener('click', function() {
-                    deleteNote(note.id)
-                })
+                if (canEditNote) {
+                    const editBtn = noteElement.querySelector('.edit-note')
+                    const deleteBtn = noteElement.querySelector('.delete-note')
+                    
+                    editBtn.addEventListener('click', function() {
+                        editNote(note.id)
+                    })
+                    
+                    deleteBtn.addEventListener('click', function() {
+                        deleteNote(note.id)
+                    })
+                }
             })
         } else {
-            notesContainer.innerHTML = '<p>В этой карточке пока нет заметок. Создайте первую!</p>'
+            notesContainer.innerHTML = '<p>В этой карточке пока нет заметок</p>'
         }
     }
 
