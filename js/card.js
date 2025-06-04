@@ -105,57 +105,69 @@ document.addEventListener('DOMContentLoaded', async function() {
     })
 
     async function loadNotes() {
-        const notesContainer = document.getElementById('notesContainer')
-        notesContainer.innerHTML = ''
-        
-        const { data: notes, error } = await supabase
-            .from('notes')
-            .select('*')
-            .eq('card_id', currentCard.id)
-            .order('updated_at', { ascending: false })
+    const notesContainer = document.getElementById('notesContainer');
+    notesContainer.innerHTML = '';
+    
+    // Получаем заметки с информацией о пользователях
+    const { data: notes, error } = await supabase
+        .from('notes')
+        .select(`
+            *,
+            user:user_id(name),
+            updated_by_user:updated_by(name)
+        `)
+        .eq('card_id', currentCard.id)
+        .order('updated_at', { ascending: false });
 
-        if (error) {
-            console.error(error)
-            return
-        }
-
-        if (notes && notes.length > 0) {
-            notes.forEach(note => {
-                const noteElement = document.createElement('div')
-                noteElement.className = 'note-item'
-                noteElement.style.backgroundColor = note.color
-                
-                // Проверяем, является ли пользователь автором заметки или имеет доступ к доске
-                const canEditNote = note.user_id === user.id || hasBoardAccess
-                
-                noteElement.innerHTML = `
-                    <p>${note.text}</p>
-                    <small>Обновлено: ${new Date(note.updated_at).toLocaleString()}</small>
-                    <div class="note-actions">
-                        ${canEditNote ? `<button class="edit-note btn" data-id="${note.id}"><i class="fas fa-edit"></i> Редактировать</button>` : ''}
-                        ${canEditNote ? `<button class="delete-note btn danger" data-id="${note.id}"><i class="fas fa-trash"></i> Удалить</button>` : ''}
-                    </div>
-                `
-                
-                notesContainer.appendChild(noteElement)
-
-                if (canEditNote) {
-                    const editBtn = noteElement.querySelector('.edit-note')
-                    const deleteBtn = noteElement.querySelector('.delete-note')
-                    
-                    editBtn.addEventListener('click', function() {
-                        editNote(note.id)
-                    })
-                    
-                    deleteBtn.addEventListener('click', function() {
-                        deleteNote(note.id)
-                    })
-                }
-            })
-        } else {
-            notesContainer.innerHTML = '<p>В этой карточке пока нет заметок</p>'
-        }
+    if (error) {
+        console.error(error);
+        return;
     }
+
+    // Проверяем, является ли доска расшаренной (имеет более 1 пользователя)
+    const { count: sharedCount } = await supabase
+        .from('shared_boards')
+        .select('*', { count: 'exact', head: true })
+        .eq('board_id', currentBoard.id);
+
+    const isShared = sharedCount > 0;
+
+    if (notes && notes.length > 0) {
+        notes.forEach(note => {
+            const noteElement = document.createElement('div');
+            noteElement.className = 'note-item';
+            noteElement.style.backgroundColor = note.color;
+            
+            const canEditNote = note.user_id === user.id || hasBoardAccess;
+            
+            noteElement.innerHTML = `
+                <p>${note.text}</p>
+                ${isShared ? `
+                    <small>Добавил: ${note.user?.name || 'Неизвестно'}</small>
+                    ${note.updated_by && note.updated_by !== note.user_id ? 
+                        `<small>Изменил: ${note.updated_by_user?.name || 'Неизвестно'}</small>` : ''}
+                ` : ''}
+                <small>Обновлено: ${new Date(note.updated_at).toLocaleString()}</small>
+                <div class="note-actions">
+                    ${canEditNote ? `<button class="edit-note btn" data-id="${note.id}"><i class="fas fa-edit"></i> Редактировать</button>` : ''}
+                    ${canEditNote ? `<button class="delete-note btn danger" data-id="${note.id}"><i class="fas fa-trash"></i> Удалить</button>` : ''}
+                </div>
+            `;
+            
+            notesContainer.appendChild(noteElement);
+
+            if (canEditNote) {
+                const editBtn = noteElement.querySelector('.edit-note');
+                const deleteBtn = noteElement.querySelector('.delete-note');
+                
+                editBtn.addEventListener('click', () => editNote(note.id));
+                deleteBtn.addEventListener('click', () => deleteNote(note.id));
+            }
+        });
+    } else {
+        notesContainer.innerHTML = '<p>В этой карточке пока нет заметок</p>';
+    }
+}
 
     async function editCard() {
         const newName = prompt('Введите новое название карточки:', currentCard.name)
@@ -199,39 +211,33 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function editNote(noteId) {
-        const note = currentCard.notes?.find(n => n.id === noteId) || 
-                    (await supabase.from('notes').select('*').eq('id', noteId).single()).data
-        if (!note) return
+    const note = currentCard.notes?.find(n => n.id === noteId) || 
+                (await supabase.from('notes').select('*').eq('id', noteId).single()).data;
+    if (!note) return;
 
-        const newText = prompt('Редактировать заметку:', note.text)
-        if (newText === null || newText.trim() === '') return
+    const newText = prompt('Редактировать заметку:', note.text);
+    if (newText === null || newText.trim() === '') return;
 
-        const newColor = document.getElementById('newNoteColor').value
+    const newColor = document.getElementById('newNoteColor').value;
 
-        const { error } = await supabase
-            .from('notes')
-            .update({ 
-                text: newText.trim(),
-                color: newColor,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', noteId)
+    const { error } = await supabase
+        .from('notes')
+        .update({ 
+            text: newText.trim(),
+            color: newColor,
+            updated_at: new Date().toISOString(),
+            updated_by: user.id  // Сохраняем ID пользователя, который редактировал заметку
+        })
+        .eq('id', noteId);
 
-        if (error) {
-            alert(error.message)
-            return
-        }
-
-        // Обновляем текущую карточку в sessionStorage
-        const { data: updatedCard } = await supabase
-            .from('cards')
-            .select('*, notes(*)')
-            .eq('id', currentCard.id)
-            .single()
-
-        sessionStorage.setItem('currentCard', JSON.stringify(updatedCard))
-        loadNotes()
+    if (error) {
+        alert(error.message);
+        return;
     }
+
+    // Обновляем данные
+    loadNotes();
+}
 
     async function deleteNote(noteId) {
         if (!confirm('Вы уверены, что хотите удалить эту заметку?')) {
