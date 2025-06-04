@@ -367,24 +367,86 @@ async function openShareModal(boardId) {
 
 // Редактирование доски
 async function editBoard(boardId) {
+    // Создаем модальное окно
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Редактировать доску</h3>
+            <div class="form-group">
+                <label for="editBoardName">Название:</label>
+                <input type="text" id="editBoardName" required>
+            </div>
+            <div class="form-group">
+                <label for="editBoardColor">Цвет:</label>
+                <input type="color" id="editBoardColor" value="#ffffff">
+            </div>
+            <button id="saveBoardChangesBtn" class="btn">Сохранить</button>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
     try {
-        const newName = prompt('Введите новое название доски:');
-        if (!newName) return;
-
-        const newColor = document.getElementById('newBoardColor').value;
-
-        const { error } = await supabase
+        // Получаем текущие данные доски
+        const { data: board, error: boardError } = await supabase
             .from('boards')
-            .update({ name: newName, color: newColor })
-            .eq('id', boardId);
+            .select('*')
+            .eq('id', boardId)
+            .single();
 
-        if (error) throw error;
+        if (boardError || !board) {
+            throw new Error('Доска не найдена');
+        }
 
-        const user = await getCurrentUser();
-        await loadBoards(user.id);
+        // Заполняем форму
+        const editBoardName = document.getElementById('editBoardName');
+        const editBoardColor = document.getElementById('editBoardColor');
+        editBoardName.value = board.name;
+        editBoardColor.value = board.color || '#ffffff';
+        modal.style.display = 'block';
+
+        // Функция закрытия
+        const closeModal = () => {
+            modal.style.display = 'none';
+            modal.remove();
+        };
+
+        // Обработчики закрытия
+        modal.querySelector('.close').onclick = closeModal;
+        window.onclick = (e) => e.target === modal && closeModal();
+
+        // Обработчик сохранения
+        document.getElementById('saveBoardChangesBtn').onclick = async function() {
+            const newName = editBoardName.value.trim();
+            const newColor = editBoardColor.value;
+            
+            if (!newName) {
+                alert('Введите название доски');
+                return;
+            }
+            
+            try {
+                const { error } = await supabase
+                    .from('boards')
+                    .update({ name: newName, color: newColor })
+                    .eq('id', boardId);
+                
+                if (error) throw error;
+                
+                const user = await getCurrentUser();
+                await loadBoards(user.id);
+                closeModal();
+            } catch (error) {
+                console.error('Ошибка обновления доски:', error);
+                alert('Не удалось обновить доску: ' + error.message);
+            }
+        };
     } catch (error) {
         console.error('Ошибка редактирования доски:', error);
-        alert('Не удалось обновить доску');
+        alert('Не удалось загрузить данные доски: ' + error.message);
+        modal.remove();
     }
 }
 

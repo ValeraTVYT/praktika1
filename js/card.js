@@ -194,25 +194,64 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function editCard() {
-        const newName = prompt('Введите новое название карточки:', currentCard.name)
-        if (newName === null || newName.trim() === '') return
-
-        const newColor = document.getElementById('newNoteColor').value
-
-        const { data, error } = await supabase
-            .from('cards')
-            .update({ name: newName.trim(), color: newColor })
-            .eq('id', currentCard.id)
-            .select()
-
-        if (error) {
-            alert(error.message)
-            return
+        const modal = document.getElementById('editCardModal')
+        const editCardName = document.getElementById('editCardName')
+        const editCardColor = document.getElementById('editCardColor')
+        const saveBtn = document.getElementById('saveCardChangesBtn')
+        
+        // Заполняем текущими значениями
+        editCardName.value = currentCard.name
+        editCardColor.value = currentCard.color || '#ffffff'
+        
+        // Показываем модальное окно
+        modal.style.display = 'block'
+        
+        // Обработчик закрытия
+        const closeModal = () => {
+            modal.style.display = 'none'
+            window.onclick = null
+            document.querySelector('.close').onclick = null
+            saveBtn.onclick = null
         }
-
-        sessionStorage.setItem('currentCard', JSON.stringify({ ...currentCard, ...data[0] }))
-        document.getElementById('cardTitle').textContent = data[0].name
-        document.getElementById('cardTitle').style.color = '#333'
+        
+        // Закрытие по клику на крестик
+        document.querySelector('.close').onclick = closeModal
+        
+        // Закрытие по клику вне окна
+        window.onclick = function(event) {
+            if (event.target === modal) {
+                closeModal()
+            }
+        }
+        
+        // Обработчик сохранения
+        saveBtn.onclick = async function() {
+            const newName = editCardName.value.trim()
+            const newColor = editCardColor.value
+            
+            if (!newName) {
+                alert('Введите название карточки')
+                return
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from('cards')
+                    .update({ name: newName.trim(), color: newColor })
+                    .eq('id', currentCard.id)
+                    .select()
+                
+                if (error) throw error
+                
+                sessionStorage.setItem('currentCard', JSON.stringify({ ...currentCard, ...data[0] }))
+                document.getElementById('cardTitle').textContent = data[0].name
+                document.getElementById('cardTitle').style.color = data[0].color || '#333'
+                closeModal()
+            } catch (error) {
+                console.error('Ошибка обновления карточки:', error)
+                alert('Не удалось обновить карточку: ' + error.message)
+            }
+        }
     }
 
     async function deleteCard() {
@@ -235,58 +274,83 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function editNote(noteId) {
+        const modal = document.getElementById('editNoteModal')
+        const editNoteText = document.getElementById('editNoteText')
+        const editNoteColor = document.getElementById('editNoteColor')
+        const saveBtn = document.getElementById('saveNoteChangesBtn')
+        
         try {
-            // Проверяем аутентификацию
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                alert('Необходимо авторизоваться');
-                return;
-            }
-
             // Получаем текущую заметку
             const { data: note, error: noteError } = await supabase
                 .from('notes')
-                .select('*, user:user_id(name)')
+                .select('*')
                 .eq('id', noteId)
-                .single();
+                .single()
 
             if (noteError || !note) {
-                alert('Заметка не найдена');
-                return;
+                alert('Заметка не найдена')
+                return
             }
 
             // Проверяем права доступа
-            const hasBoardAccess = await checkBoardAccess(currentCard.board_id, user.id);
-            const canEdit = note.user_id === user.id || hasBoardAccess;
+            const hasBoardAccess = await checkBoardAccess(currentCard.board_id, user.id)
+            const canEdit = note.user_id === user.id || hasBoardAccess
 
             if (!canEdit) {
-                alert('У вас нет прав для редактирования этой заметки');
-                return;
+                alert('У вас нет прав для редактирования этой заметки')
+                return
             }
 
-            // Запрос на редактирование
-            const newText = prompt('Редактировать заметку:', note.text);
-            if (newText === null || newText.trim() === '') return;
-
-            const newColor = document.getElementById('newNoteColor').value;
-
-            const { error } = await supabase
-                .from('notes')
-                .update({ 
-                    text: newText.trim(),
-                    color: newColor,
-                    updated_at: new Date().toISOString(),
-                    updated_by: user.id
-                })
-                .eq('id', noteId);
-
-            if (error) throw error;
-
-            // Обновляем данные
-            loadNotes();
+            // Заполняем форму
+            editNoteText.value = note.text
+            editNoteColor.value = note.color || '#ffffff'
+            modal.style.display = 'block'
+            
+            // Функция закрытия
+            const closeModal = () => {
+                modal.style.display = 'none'
+                window.onclick = null
+                document.querySelector('.close').onclick = null
+                saveBtn.onclick = null
+            }
+            
+            // Обработчики закрытия
+            document.querySelector('.close').onclick = closeModal
+            window.onclick = (e) => e.target === modal && closeModal()
+            
+            // Обработчик сохранения
+            saveBtn.onclick = async function() {
+                const newText = editNoteText.value.trim()
+                const newColor = editNoteColor.value
+                
+                if (!newText) {
+                    alert('Введите текст заметки')
+                    return
+                }
+                
+                try {
+                    const { error } = await supabase
+                        .from('notes')
+                        .update({ 
+                            text: newText,
+                            color: newColor,
+                            updated_at: new Date().toISOString(),
+                            updated_by: user.id
+                        })
+                        .eq('id', noteId)
+                    
+                    if (error) throw error
+                    
+                    loadNotes()
+                    closeModal()
+                } catch (error) {
+                    console.error('Ошибка обновления заметки:', error)
+                    alert('Не удалось обновить заметку: ' + error.message)
+                }
+            }
         } catch (error) {
-            console.error('Ошибка редактирования заметки:', error);
-            alert('Не удалось обновить заметку: ' + error.message);
+            console.error('Ошибка редактирования заметки:', error)
+            alert('Не удалось обновить заметку: ' + error.message)
         }
     }
 
@@ -297,10 +361,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 .from('boards')
                 .select('owner_id')
                 .eq('id', boardId)
-                .single();
+                .single()
 
             if (!boardError && board && board.owner_id === userId) {
-                return true;
+                return true
             }
 
             // Проверяем доступ через shared_boards
@@ -309,12 +373,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                 .select('*')
                 .eq('board_id', boardId)
                 .eq('user_id', userId)
-                .single();
+                .single()
 
-            return !sharedError && shared !== null;
+            return !sharedError && shared !== null
         } catch (error) {
-            console.error('Ошибка проверки доступа:', error);
-            return false;
+            console.error('Ошибка проверки доступа:', error)
+            return false
         }
     }
 
