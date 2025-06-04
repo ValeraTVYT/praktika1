@@ -148,64 +148,71 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function editBoard() {
-        const modal = document.getElementById('editBoardModal')
-        const editBoardName = document.getElementById('editBoardName')
-        const editBoardColor = document.getElementById('editBoardColor')
-        const saveBtn = document.getElementById('saveBoardChangesBtn')
+        const modal = document.getElementById('editBoardModal');
+        const editBoardName = document.getElementById('editBoardName');
+        const editBoardColor = document.getElementById('editBoardColor');
+        const saveBtn = document.getElementById('saveBoardChangesBtn');
         
         // Заполняем текущими значениями
-        editBoardName.value = currentBoard.name
-        editBoardColor.value = currentBoard.color || '#ffffff'
+        editBoardName.value = currentBoard.name;
+        editBoardColor.value = currentBoard.color || '#ffffff';
         
         // Показываем модальное окно
-        modal.style.display = 'block'
+        modal.style.display = 'block';
         
         // Обработчик закрытия
         const closeModal = () => {
-            modal.style.display = 'none'
-            window.onclick = null
-            document.querySelector('.close').onclick = null
-            saveBtn.onclick = null
-        }
+            modal.style.display = 'none';
+            window.onclick = null;
+            document.querySelector('.close').onclick = null;
+            saveBtn.onclick = null;
+        };
         
         // Закрытие по клику на крестик
-        document.querySelector('.close').onclick = closeModal
+        modal.querySelector('.close').onclick = closeModal;
         
         // Закрытие по клику вне окна
         window.onclick = function(event) {
             if (event.target === modal) {
-                closeModal()
+                closeModal();
             }
-        }
+        };
         
         // Обработчик сохранения
         saveBtn.onclick = async function() {
-            const newName = editBoardName.value.trim()
-            const newColor = editBoardColor.value
+            const newName = editBoardName.value.trim();
+            const newColor = editBoardColor.value;
             
             if (!newName) {
-                alert('Введите название доски')
-                return
+                alert('Введите название доски');
+                return;
             }
             
             try {
                 const { data, error } = await supabase
                     .from('boards')
-                    .update({ name: newName, color: newColor })
+                    .update({ 
+                        name: newName,
+                        color: newColor,
+                        updated_at: new Date().toISOString()
+                    })
                     .eq('id', currentBoard.id)
-                    .select()
+                    .select();
                 
-                if (error) throw error
+                if (error) throw error;
                 
-                sessionStorage.setItem('currentBoard', JSON.stringify(data[0]))
-                document.getElementById('boardTitle').textContent = data[0].name
-                document.getElementById('boardTitle').style.color = data[0].color || '#333'
-                closeModal()
+                // Обновляем данные доски
+                const updatedBoard = data[0];
+                sessionStorage.setItem('currentBoard', JSON.stringify(updatedBoard));
+                document.getElementById('boardTitle').textContent = updatedBoard.name;
+                document.getElementById('boardTitle').style.color = updatedBoard.color || '#333';
+                
+                closeModal();
             } catch (error) {
-                console.error('Ошибка обновления доски:', error)
-                alert('Не удалось обновить доску: ' + error.message)
+                console.error('Ошибка обновления доски:', error);
+                alert('Не удалось обновить доску: ' + error.message);
             }
-        }
+        };
     }
 
     async function deleteBoard() {

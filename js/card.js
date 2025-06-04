@@ -194,64 +194,71 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function editCard() {
-        const modal = document.getElementById('editCardModal')
-        const editCardName = document.getElementById('editCardName')
-        const editCardColor = document.getElementById('editCardColor')
-        const saveBtn = document.getElementById('saveCardChangesBtn')
+        const modal = document.getElementById('editCardModal');
+        const editCardName = document.getElementById('editCardName');
+        const editCardColor = document.getElementById('editCardColor');
+        const saveBtn = document.getElementById('saveCardChangesBtn');
         
         // Заполняем текущими значениями
-        editCardName.value = currentCard.name
-        editCardColor.value = currentCard.color || '#ffffff'
+        editCardName.value = currentCard.name;
+        editCardColor.value = currentCard.color || '#ffffff';
         
         // Показываем модальное окно
-        modal.style.display = 'block'
+        modal.style.display = 'block';
         
         // Обработчик закрытия
         const closeModal = () => {
-            modal.style.display = 'none'
-            window.onclick = null
-            document.querySelector('.close').onclick = null
-            saveBtn.onclick = null
-        }
+            modal.style.display = 'none';
+            window.onclick = null;
+            document.querySelector('.close').onclick = null;
+            saveBtn.onclick = null;
+        };
         
         // Закрытие по клику на крестик
-        document.querySelector('.close').onclick = closeModal
+        modal.querySelector('.close').onclick = closeModal;
         
         // Закрытие по клику вне окна
         window.onclick = function(event) {
             if (event.target === modal) {
-                closeModal()
+                closeModal();
             }
-        }
+        };
         
         // Обработчик сохранения
         saveBtn.onclick = async function() {
-            const newName = editCardName.value.trim()
-            const newColor = editCardColor.value
+            const newName = editCardName.value.trim();
+            const newColor = editCardColor.value;
             
             if (!newName) {
-                alert('Введите название карточки')
-                return
+                alert('Введите название карточки');
+                return;
             }
             
             try {
                 const { data, error } = await supabase
                     .from('cards')
-                    .update({ name: newName.trim(), color: newColor })
+                    .update({ 
+                        name: newName,
+                        color: newColor,
+                        updated_at: new Date().toISOString()
+                    })
                     .eq('id', currentCard.id)
-                    .select()
+                    .select();
                 
-                if (error) throw error
+                if (error) throw error;
                 
-                sessionStorage.setItem('currentCard', JSON.stringify({ ...currentCard, ...data[0] }))
-                document.getElementById('cardTitle').textContent = data[0].name
-                document.getElementById('cardTitle').style.color = data[0].color || '#333'
-                closeModal()
+                // Обновляем данные карточки
+                const updatedCard = { ...currentCard, ...data[0] };
+                sessionStorage.setItem('currentCard', JSON.stringify(updatedCard));
+                document.getElementById('cardTitle').textContent = updatedCard.name;
+                document.getElementById('cardTitle').style.color = updatedCard.color || '#333';
+                
+                closeModal();
             } catch (error) {
-                console.error('Ошибка обновления карточки:', error)
-                alert('Не удалось обновить карточку: ' + error.message)
+                console.error('Ошибка обновления карточки:', error);
+                alert('Не удалось обновить карточку: ' + error.message);
             }
-        }
+        };
     }
 
     async function deleteCard() {
