@@ -5,13 +5,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
     
+    // Функция для переключения табов
+    function switchTab(tabId) {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    }
+
     tabBtns.forEach(btn => {
         btn.addEventListener('click', function() {
             const tabId = this.getAttribute('data-tab');
-            tabBtns.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
-            this.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
+            switchTab(tabId);
         });
     });
 
@@ -144,28 +149,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (userError) throw userError;
 
-                // 3. Автоматический вход после регистрации
-                const { error: loginError } = await supabase.auth.signInWithPassword({
-                    email,
-                    password
-                });
-
-                if (loginError) throw loginError;
-
-                // Сохраняем данные пользователя и перенаправляем
-                sessionStorage.setItem('currentUser', JSON.stringify(userData[0]));
-                
-                // Переключаем на вкладку входа после успешной регистрации
-                tabBtns.forEach(b => b.classList.remove('active'));
-                tabContents.forEach(c => c.classList.remove('active'));
-                document.querySelector('.tab-btn[data-tab="login"]').classList.add('active');
-                document.getElementById('login').classList.add('active');
+                // Переключаем на вкладку входа
+                switchTab('login');
                 
                 // Очищаем форму регистрации
                 registerForm.reset();
                 
+                // Показываем сообщение о подтверждении email
+                alert('Регистрация прошла успешно! Пожалуйста, проверьте вашу почту для подтверждения email.');
+                
             } catch (error) {
-                alert(error.message);
+                // Обрабатываем ошибку подтверждения email
+                if (error.message.includes('signup requires email verification')) {
+                    // Переключаем на вкладку входа
+                    switchTab('login');
+                    
+                    // Очищаем форму регистрации
+                    registerForm.reset();
+                    
+                    // Показываем сообщение на русском
+                    alert('Регистрация прошла успешно! Пожалуйста, проверьте вашу почту для подтверждения email.');
+                } else {
+                    alert(error.message);
+                }
                 console.error(error);
             }
         });
