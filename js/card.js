@@ -24,15 +24,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Проверяем, является ли пользователь владельцем карточки
     const isOwner = currentCard.owner_id === user.id
 
-    // Проверяем, есть ли доступ к доске через shared_boards
-    const { data: sharedBoard } = await supabase
-        .from('shared_boards')
-        .select('*')
-        .eq('board_id', currentCard.board_id)
-        .eq('user_id', user.id)
-        .single()
-
-    const hasBoardAccess = isOwner || sharedBoard !== null
+    // Проверяем доступ к доске
+    const hasBoardAccess = await checkBoardAccess(currentCard.board_id, user.id)
 
     document.getElementById('userName').textContent = userData.name
     document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase()
@@ -125,11 +118,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Проверяем доступ к доске
             const hasBoardAccess = await checkBoardAccess(currentCard.board_id, user.id);
-            if (!hasBoardAccess) {
-                notesContainer.innerHTML = '<p>Нет доступа к этой карточке</p>';
-                return;
-            }
-
+            
             // Получаем заметки с информацией о пользователях
             const { data: notes, error: notesError } = await supabase
                 .from('notes')
@@ -254,7 +243,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             // Проверяем права доступа
-            const hasBoardAccess = await checkBoardAccess(note.card_id, user.id);
+            const hasBoardAccess = await checkBoardAccess(currentCard.board_id, user.id);
             const canEdit = note.user_id === user.id || hasBoardAccess;
 
             if (!canEdit) {
