@@ -109,12 +109,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         notesContainer.innerHTML = '<p>Загрузка заметок...</p>';
         
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                notesContainer.innerHTML = '<p>Необходимо авторизоваться</p>';
+            // Проверка аутентификации
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError || !user) {
+                notesContainer.innerHTML = '<p>Требуется авторизация</p>';
                 return;
             }
 
+            // Получаем текущую карточку
             const currentCard = JSON.parse(sessionStorage.getItem('currentCard'));
             if (!currentCard) {
                 notesContainer.innerHTML = '<p>Карточка не найдена</p>';
@@ -122,23 +124,36 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             // Проверяем доступ к доске
-            const hasBoardAccess = await checkBoardAccess(currentCard.id, user.id);
+            const hasBoardAccess = await checkBoardAccess(currentCard.board_id, user.id);
+            if (!hasBoardAccess) {
+                notesContainer.innerHTML = '<p>Нет доступа к этой карточке</p>';
+                return;
+            }
 
             // Получаем заметки с информацией о пользователях
-            const { data: notes, error } = await supabase
+            const { data: notes, error: notesError } = await supabase
                 .from('notes')
                 .select(`
                     *,
-                    user:user_id(name),
-                    updated_by_user:updated_by(name)
+                    creator:user_id(name),
+                    editor:updated_by(name)
                 `)
                 .eq('card_id', currentCard.id)
-                .order('updated_at', { ascending: false });
+                .order('created_at', { ascending: false });
 
-            if (error) throw error;
+            if (notesError) throw notesError;
 
+            // Получаем информацию о расшаренности доски
+            const { data: sharedData, error: sharedError } = await supabase
+                .from('shared_boards')
+                .select('user_id')
+                .eq('board_id', currentCard.board_id);
+
+            const isShared = sharedData && sharedData.length > 0;
+
+            // Отображаем заметки
             notesContainer.innerHTML = '';
-
+            
             if (notes && notes.length > 0) {
                 notes.forEach(note => {
                     const noteElement = document.createElement('div');
@@ -149,12 +164,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                     
                     noteElement.innerHTML = `
                         <p>${note.text}</p>
-                        <small>Автор: ${note.user?.name || 'Неизвестно'}</small>
-                        ${note.updated_by ? `<small>Изменено: ${note.updated_by_user?.name || 'Неизвестно'}</small>` : ''}
-                        <small>Дата: ${new Date(note.updated_at || note.created_at).toLocaleString()}</small>
+                        ${isShared ? `
+                            <small>Автор: ${note.creator?.name || 'Неизвестно'}</small>
+                            ${note.updated_by ? `<small>Изменено: ${note.editor?.name || 'Неизвестно'}</small>` : ''}
+                        ` : ''}
+                        <small>${new Date(note.updated_at || note.created_at).toLocaleString()}</small>
                         <div class="note-actions">
-                            ${canEditNote ? `<button class="edit-note btn" data-id="${note.id}"><i class="fas fa-edit"></i> Редактировать</button>` : ''}
-                            ${canEditNote ? `<button class="delete-note btn danger" data-id="${note.id}"><i class="fas fa-trash"></i> Удалить</button>` : ''}
+                            ${canEditNote ? `<button class="edit-note btn" data-id="${note.id}"><i class="fas fa-edit"></i></button>` : ''}
+                            ${canEditNote ? `<button class="delete-note btn danger" data-id="${note.id}"><i class="fas fa-trash"></i></button>` : ''}
                         </div>
                     `;
                     
@@ -170,7 +187,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         } catch (error) {
             console.error('Ошибка загрузки заметок:', error);
-            notesContainer.innerHTML = '<p>Ошибка загрузки заметок</p>';
+            notesContainer.innerHTML = '<p>Ошибка загрузки заметок. Попробуйте обновить страницу.</p>';
         }
     }
 
@@ -271,36 +288,28 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    async function checkBoardAccess(cardId, userId) {
+    async function checkBoardAccess(boardId, userId) {
         try {
-            // Получаем board_id из карточки
-            const { data: card, error: cardError } = await supabase
-                .from('cards')
-                .select('board_id')
-                .eq('id', cardId)
-                .single();
-
-            if (cardError || !card) return false;
-
             // Проверяем, является ли пользователь владельцем доски
             const { data: board, error: boardError } = await supabase
                 .from('boards')
                 .select('owner_id')
-                .eq('id', card.board_id)
+                .eq('id', boardId)
                 .single();
 
-            if (boardError || !board) return false;
-            if (board.owner_id === userId) return true;
+            if (!boardError && board && board.owner_id === userId) {
+                return true;
+            }
 
             // Проверяем доступ через shared_boards
             const { data: shared, error: sharedError } = await supabase
                 .from('shared_boards')
                 .select('*')
-                .eq('board_id', card.board_id)
+                .eq('board_id', boardId)
                 .eq('user_id', userId)
                 .single();
 
-            return !!shared && !sharedError;
+            return !sharedError && shared !== null;
         } catch (error) {
             console.error('Ошибка проверки доступа:', error);
             return false;
