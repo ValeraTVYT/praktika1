@@ -309,7 +309,6 @@ async function addNewBoard() {
     }
 }
 
-// Модальное окно для расшаривания доски
 async function openShareModal(boardId) {
     const modal = document.getElementById('shareModal');
     const closeBtn = modal.querySelector('.close');

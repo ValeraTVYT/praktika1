@@ -21,12 +21,15 @@ document.addEventListener('DOMContentLoaded', function() {
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const email = document.getElementById('loginUsername').value;
+            const loginIdentifier = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
 
             try {
+                // Определяем, это email или логин
+                const isEmail = loginIdentifier.includes('@');
+
                 const { data, error } = await supabase.auth.signInWithPassword({
-                    email,
+                    [isEmail ? 'email' : 'username']: loginIdentifier,
                     password
                 });
 
@@ -73,6 +76,21 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             try {
+                // Проверка на существующий email или логин
+                const { data: existingUser, error: checkError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .or(`email.eq.${email},username.eq.${username}`)
+                    .maybeSingle();
+
+                if (existingUser) {
+                    if (existingUser.email === email) {
+                        throw new Error('Пользователь с таким email уже существует');
+                    } else {
+                        throw new Error('Пользователь с таким логином уже существует');
+                    }
+                }
+
                 // 1. Регистрация в Supabase Auth
                 const { data: authData, error: authError } = await supabase.auth.signUp({
                     email,
@@ -112,7 +130,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Сохраняем данные пользователя и перенаправляем
                 sessionStorage.setItem('currentUser', JSON.stringify(userData[0]));
-                window.location.href = 'main.html';
+                
+                // Переключаем на вкладку входа после успешной регистрации
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                document.querySelector('.tab-btn[data-tab="login"]').classList.add('active');
+                document.getElementById('login').classList.add('active');
+                
+                // Очищаем форму регистрации
+                registerForm.reset();
                 
             } catch (error) {
                 alert(error.message);
