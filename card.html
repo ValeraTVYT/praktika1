@@ -21,8 +21,8 @@
         <div class="card-header">
             <h1 id="cardTitle">Карточка</h1>
             <div class="card-actions">
-                <button id="editCardBtn" class="btn"><i class="fas fa-edit"></i> Редактировать</button>
-                <button id="deleteCardBtn" class="btn danger"><i class="fas fa-trash"></i> Удалить</button>
+                <button id="editCardBtn" class="btn"><i class="fas fa-edit"></i></button>
+                <button id="deleteCardBtn" class="btn"><i class="fas fa-trash"></i></button>
             </div>
         </div>
         
@@ -37,40 +37,6 @@
         <div class="notes-container" id="notesContainer">
         </div>
     </main>
-
-    <!-- Модальное окно редактирования карточки -->
-    <div id="editCardModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3>Редактировать карточку</h3>
-            <div class="form-group">
-                <label for="editCardName">Название:</label>
-                <input type="text" id="editCardName" required>
-            </div>
-            <div class="form-group">
-                <label for="editCardColor">Цвет:</label>
-                <input type="color" id="editCardColor" value="#ffffff">
-            </div>
-            <button id="saveCardChangesBtn" class="btn">Сохранить</button>
-        </div>
-    </div>
-
-    <!-- Модальное окно редактирования заметки -->
-    <div id="editNoteModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3>Редактировать заметку</h3>
-            <div class="form-group">
-                <label for="editNoteText">Текст:</label>
-                <textarea id="editNoteText" required></textarea>
-            </div>
-            <div class="form-group">
-                <label for="editNoteColor">Цвет:</label>
-                <input type="color" id="editNoteColor" value="#ffffff">
-            </div>
-            <button id="saveNoteChangesBtn" class="btn">Сохранить</button>
-        </div>
-    </div>
 
     <script type="module" src="js/card.js"></script>
 </body>

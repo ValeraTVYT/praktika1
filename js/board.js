@@ -107,6 +107,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 cardElement.className = 'card-item'
                 cardElement.style.backgroundColor = card.color
                 
+                // Проверяем, является ли пользователь владельцем карточки
                 const canEditCard = card.owner_id === user.id
                 
                 cardElement.innerHTML = `
@@ -148,71 +149,25 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function editBoard() {
-        const modal = document.getElementById('editBoardModal');
-        const editBoardName = document.getElementById('editBoardName');
-        const editBoardColor = document.getElementById('editBoardColor');
-        const saveBtn = document.getElementById('saveBoardChangesBtn');
-        
-        // Заполняем текущими значениями
-        editBoardName.value = currentBoard.name;
-        editBoardColor.value = currentBoard.color || '#ffffff';
-        
-        // Показываем модальное окно
-        modal.style.display = 'block';
-        
-        // Обработчик закрытия
-        const closeModal = () => {
-            modal.style.display = 'none';
-            window.onclick = null;
-            document.querySelector('.close').onclick = null;
-            saveBtn.onclick = null;
-        };
-        
-        // Закрытие по клику на крестик
-        modal.querySelector('.close').onclick = closeModal;
-        
-        // Закрытие по клику вне окна
-        window.onclick = function(event) {
-            if (event.target === modal) {
-                closeModal();
-            }
-        };
-        
-        // Обработчик сохранения
-        saveBtn.onclick = async function() {
-            const newName = editBoardName.value.trim();
-            const newColor = editBoardColor.value;
-            
-            if (!newName) {
-                alert('Введите название доски');
-                return;
-            }
-            
-            try {
-                const { data, error } = await supabase
-                    .from('boards')
-                    .update({ 
-                        name: newName,
-                        color: newColor,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', currentBoard.id)
-                    .select();
-                
-                if (error) throw error;
-                
-                // Обновляем данные доски
-                const updatedBoard = data[0];
-                sessionStorage.setItem('currentBoard', JSON.stringify(updatedBoard));
-                document.getElementById('boardTitle').textContent = updatedBoard.name;
-                document.getElementById('boardTitle').style.color = updatedBoard.color || '#333';
-                
-                closeModal();
-            } catch (error) {
-                console.error('Ошибка обновления доски:', error);
-                alert('Не удалось обновить доску: ' + error.message);
-            }
-        };
+        const newName = prompt('Введите новое название доски:', currentBoard.name)
+        if (newName === null || newName.trim() === '') return
+
+        const newColor = document.getElementById('newCardColor').value
+
+        const { data, error } = await supabase
+            .from('boards')
+            .update({ name: newName.trim(), color: newColor })
+            .eq('id', currentBoard.id)
+            .select()
+
+        if (error) {
+            alert(error.message)
+            return
+        }
+
+        sessionStorage.setItem('currentBoard', JSON.stringify(data[0]))
+        document.getElementById('boardTitle').textContent = data[0].name
+        document.getElementById('boardTitle').style.color = '#333'
     }
 
     async function deleteBoard() {
@@ -235,69 +190,22 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     async function editCard(cardId) {
-        const modal = document.getElementById('editCardModal')
-        const editCardName = document.getElementById('editCardName')
-        const editCardColor = document.getElementById('editCardColor')
-        const saveBtn = document.getElementById('saveCardChangesBtn')
-        
-        // Получаем текущие данные карточки
-        const { data: card, error: cardError } = await supabase
+        const newName = prompt('Введите новое название карточки:')
+        if (newName === null || newName.trim() === '') return
+
+        const newColor = document.getElementById('newCardColor').value
+
+        const { error } = await supabase
             .from('cards')
-            .select('*')
+            .update({ name: newName.trim(), color: newColor })
             .eq('id', cardId)
-            .single()
-        
-        if (cardError) {
-            alert('Ошибка загрузки карточки')
+
+        if (error) {
+            alert(error.message)
             return
         }
-        
-        // Заполняем форму
-        editCardName.value = card.name
-        editCardColor.value = card.color || '#ffffff'
-        modal.style.display = 'block'
-        
-        // Функция закрытия
-        const closeModal = () => {
-            modal.style.display = 'none'
-            window.onclick = null
-            document.querySelector('.close').onclick = null
-            saveBtn.onclick = null
-        }
-        
-        // Обработчики закрытия
-        document.querySelector('.close').onclick = closeModal
-        window.onclick = (e) => e.target === modal && closeModal()
-        
-        // Обработчик сохранения
-        saveBtn.onclick = async function() {
-            const newName = editCardName.value.trim()
-            const newColor = editCardColor.value
-            
-            if (!newName) {
-                alert('Введите название карточки')
-                return
-            }
-            
-            try {
-                const { error } = await supabase
-                    .from('cards')
-                    .update({ 
-                        name: newName,
-                        color: newColor,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', cardId)
-                
-                if (error) throw error
-                
-                loadCards()
-                closeModal()
-            } catch (error) {
-                console.error('Ошибка обновления карточки:', error)
-                alert('Не удалось обновить карточку: ' + error.message)
-            }
-        }
+
+        loadCards()
     }
 
     async function deleteCard(cardId) {
