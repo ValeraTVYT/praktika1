@@ -403,3 +403,99 @@ main h1,
 .card-item h3 {
     color: #000 !important;
 }
+
+/* Модальные окна */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    overflow: auto;
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 10% auto;
+    padding: 25px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    position: relative;
+}
+
+.modal h3 {
+    margin-top: 0;
+    color: var(--text-color);
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+}
+
+.modal .close {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+}
+
+.modal .close:hover {
+    color: var(--text-color);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.modal-actions .btn.secondary {
+    background-color: #e0e0e0;
+    color: var(--text-color);
+}
+
+.modal-actions .btn.secondary:hover {
+    background-color: #d0d0d0;
+}
+
+/* Формы в модальных окнах */
+.modal .form-group {
+    margin-bottom: 20px;
+}
+
+.modal .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.modal .form-group input[type="text"],
+.modal .form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.modal .form-group textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.modal .form-group input[type="color"] {
+    width: 60px;
+    height: 40px;
+    padding: 2px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+}

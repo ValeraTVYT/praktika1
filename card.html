@@ -38,6 +38,26 @@
         </div>
     </main>
 
+    <!-- Модальное окно редактирования заметки -->
+    <div id="editNoteModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Редактирование заметки</h3>
+            <div class="form-group">
+                <label for="editNoteText">Текст заметки:</label>
+                <textarea id="editNoteText" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="editNoteColor">Цвет:</label>
+                <input type="color" id="editNoteColor" value="#ffffff">
+            </div>
+            <div class="modal-actions">
+                <button id="cancelNoteBtn" class="btn secondary">Отмена</button>
+                <button id="saveNoteBtn" class="btn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="js/card.js"></script>
 </body>
 </html>
