@@ -116,24 +116,37 @@ document.addEventListener('DOMContentLoaded', async function() {
                 return;
             }
 
-            // Проверяем доступ к доске
-            const hasBoardAccess = await checkBoardAccess(currentCard.board_id, user.id);
-            
-            // Получаем заметки с информацией о пользователях
+            // Упрощенный запрос к заметкам без сложных join
             const { data: notes, error: notesError } = await supabase
                 .from('notes')
-                .select(`
-                    *,
-                    creator:user_id(name),
-                    editor:updated_by(name)
-                `)
+                .select('*')
                 .eq('card_id', currentCard.id)
                 .order('created_at', { ascending: false });
 
             if (notesError) throw notesError;
 
+            // Получаем информацию о пользователях отдельно
+            const userIds = [...new Set(notes.map(note => note.user_id).concat(
+                notes.filter(note => note.updated_by).map(note => note.updated_by)
+            ))];
+
+            let users = {};
+            if (userIds.length > 0) {
+                const { data: usersData, error: usersError } = await supabase
+                    .from('users')
+                    .select('id, name')
+                    .in('id', userIds);
+
+                if (!usersError) {
+                    usersData.forEach(u => users[u.id] = u.name);
+                }
+            }
+
+            // Проверяем доступ к доске
+            const hasBoardAccess = await checkBoardAccess(currentCard.board_id, user.id);
+            
             // Получаем информацию о расшаренности доски
-            const { data: sharedData, error: sharedError } = await supabase
+            const { data: sharedData } = await supabase
                 .from('shared_boards')
                 .select('user_id')
                 .eq('board_id', currentCard.board_id);
@@ -154,8 +167,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     noteElement.innerHTML = `
                         <p>${note.text}</p>
                         ${isShared ? `
-                            <small>Автор: ${note.creator?.name || 'Неизвестно'}</small>
-                            ${note.updated_by ? `<small>Изменено: ${note.editor?.name || 'Неизвестно'}</small>` : ''}
+                            <small>Автор: ${users[note.user_id] || 'Неизвестно'}</small>
+                            ${note.updated_by ? `<small>Изменено: ${users[note.updated_by] || 'Неизвестно'}</small>` : ''}
                         ` : ''}
                         <small>${new Date(note.updated_at || note.created_at).toLocaleString()}</small>
                         <div class="note-actions">
