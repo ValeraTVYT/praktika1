@@ -38,6 +38,26 @@
         </div>
     </main>
 
+    <!-- Модальное окно редактирования карточки -->
+    <div id="editCardModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Редактирование карточки</h3>
+            <div class="form-group">
+                <label for="editCardName">Название карточки:</label>
+                <input type="text" id="editCardName" required>
+            </div>
+            <div class="form-group">
+                <label for="editCardColor">Цвет:</label>
+                <input type="color" id="editCardColor" value="#ffffff">
+            </div>
+            <div class="modal-actions">
+                <button id="cancelCardBtn" class="btn secondary">Отмена</button>
+                <button id="saveCardBtn" class="btn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Модальное окно редактирования заметки -->
     <div id="editNoteModal" class="modal">
         <div class="modal-content">

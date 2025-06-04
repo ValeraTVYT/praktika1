@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('userName').textContent = userData.name;
     document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase();
     document.getElementById('boardTitle').textContent = currentBoard.name;
-    document.getElementById('boardTitle').style.color = currentBoard.color;
+    document.getElementById('boardTitle').style.color = currentBoard.color || '#333';
 
     // Скрываем кнопки управления доской, если пользователь не владелец
     document.getElementById('editBoardBtn').style.display = isOwner ? 'block' : 'none';
@@ -143,6 +143,41 @@ function createCardElement(card) {
     return cardElement;
 }
 
+function editBoard() {
+    document.getElementById('editBoardName').value = currentBoard.name;
+    document.getElementById('editBoardColor').value = currentBoard.color || '#ffffff';
+    document.getElementById('editBoardModal').style.display = 'block';
+}
+
+async function saveBoardChanges() {
+    const newName = document.getElementById('editBoardName').value.trim();
+    const newColor = document.getElementById('editBoardColor').value;
+    
+    if (!newName) {
+        alert('Введите название доски');
+        return;
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('boards')
+            .update({ name: newName, color: newColor })
+            .eq('id', currentBoard.id)
+            .select();
+
+        if (error) throw error;
+
+        currentBoard = data[0];
+        sessionStorage.setItem('currentBoard', JSON.stringify(currentBoard));
+        document.getElementById('boardTitle').textContent = currentBoard.name;
+        document.getElementById('boardTitle').style.color = currentBoard.color || '#333';
+        document.getElementById('editBoardModal').style.display = 'none';
+    } catch (error) {
+        console.error('Ошибка сохранения доски:', error);
+        alert('Не удалось сохранить изменения');
+    }
+}
+
 function openEditCardModal(card) {
     currentEditCardId = card.id;
     document.getElementById('editCardName').value = card.name;
@@ -202,41 +237,6 @@ async function addNewCard() {
     } catch (error) {
         console.error('Ошибка добавления карточки:', error);
         alert('Не удалось добавить карточку');
-    }
-}
-
-function editBoard() {
-    document.getElementById('editBoardName').value = currentBoard.name;
-    document.getElementById('editBoardColor').value = currentBoard.color || '#ffffff';
-    document.getElementById('editBoardModal').style.display = 'block';
-}
-
-async function saveBoardChanges() {
-    const newName = document.getElementById('editBoardName').value.trim();
-    const newColor = document.getElementById('editBoardColor').value;
-    
-    if (!newName) {
-        alert('Введите название доски');
-        return;
-    }
-
-    try {
-        const { data, error } = await supabase
-            .from('boards')
-            .update({ name: newName, color: newColor })
-            .eq('id', currentBoard.id)
-            .select();
-
-        if (error) throw error;
-
-        currentBoard = data[0];
-        sessionStorage.setItem('currentBoard', JSON.stringify(currentBoard));
-        document.getElementById('boardTitle').textContent = currentBoard.name;
-        document.getElementById('boardTitle').style.color = currentBoard.color;
-        document.getElementById('editBoardModal').style.display = 'none';
-    } catch (error) {
-        console.error('Ошибка сохранения доски:', error);
-        alert('Не удалось сохранить изменения');
     }
 }
 

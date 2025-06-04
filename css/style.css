@@ -404,7 +404,6 @@ main h1,
     color: #000 !important;
 }
 
-/* Модальные окна */
 .modal {
     display: none;
     position: fixed;

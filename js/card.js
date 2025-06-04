@@ -2,6 +2,7 @@ import { supabase } from './supabase.js'
 
 let currentCard = null;
 let currentEditNoteId = null;
+let currentEditCardId = null;
 
 document.addEventListener('DOMContentLoaded', async function() {
     // Проверка аутентификации
@@ -73,6 +74,7 @@ function setupEventListeners() {
         }
     });
 
+    document.getElementById('saveCardBtn').addEventListener('click', saveCardChanges);
     document.getElementById('saveNoteBtn').addEventListener('click', saveNoteChanges);
 }
 
@@ -156,6 +158,44 @@ function createNoteElement(note, users, currentUserId, hasBoardAccess) {
     return noteElement;
 }
 
+function editCard() {
+    currentEditCardId = currentCard.id;
+    document.getElementById('editCardName').value = currentCard.name;
+    document.getElementById('editCardColor').value = currentCard.color || '#ffffff';
+    document.getElementById('editCardModal').style.display = 'block';
+}
+
+async function saveCardChanges() {
+    const newName = document.getElementById('editCardName').value.trim();
+    const newColor = document.getElementById('editCardColor').value;
+    
+    if (!newName) {
+        alert('Введите название карточки');
+        return;
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('cards')
+            .update({ name: newName, color: newColor })
+            .eq('id', currentEditCardId)
+            .select();
+
+        if (error) throw error;
+
+        // Обновляем текущую карточку в sessionStorage
+        currentCard = data[0];
+        sessionStorage.setItem('currentCard', JSON.stringify(currentCard));
+        document.getElementById('cardTitle').textContent = currentCard.name;
+        document.getElementById('cardTitle').style.color = currentCard.color || '#333';
+        
+        document.getElementById('editCardModal').style.display = 'none';
+    } catch (error) {
+        console.error('Ошибка сохранения карточки:', error);
+        alert('Не удалось сохранить изменения');
+    }
+}
+
 function openEditNoteModal(note) {
     currentEditNoteId = note.id;
     document.getElementById('editNoteText').value = note.text;
@@ -231,12 +271,6 @@ async function addNewNote() {
         console.error('Ошибка добавления заметки:', error);
         alert('Не удалось добавить заметку');
     }
-}
-
-function editCard() {
-    document.getElementById('editCardName').value = currentCard.name;
-    document.getElementById('editCardColor').value = currentCard.color || '#ffffff';
-    document.getElementById('editCardModal').style.display = 'block';
 }
 
 async function deleteCard() {

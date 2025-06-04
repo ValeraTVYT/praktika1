@@ -1,5 +1,7 @@
 import { supabase } from './supabase.js'
 
+let currentEditBoardId = null;
+
 document.addEventListener('DOMContentLoaded', async function () {
     try {
         // Инициализация приложения
@@ -17,27 +19,20 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 });
 
-// Инициализация приложения
 async function initApp() {
-    // Проверка аутентификации
     const { user, userData } = await checkAuth();
     if (!user || !userData) {
         window.location.href = 'index.html';
         return;
     }
-
-    // Обновление UI
     updateUserUI(userData);
 }
 
-// Проверка аутентификации
 async function checkAuth() {
     try {
-        // 1. Проверка текущей сессии Supabase
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         
         if (user) {
-            // Получаем данные пользователя из таблицы users
             const { data: userData, error: userError } = await supabase
                 .from('users')
                 .select('*')
@@ -46,17 +41,13 @@ async function checkAuth() {
 
             if (userError) throw userError;
             
-            // Сохраняем данные пользователя в sessionStorage
             sessionStorage.setItem('currentUser', JSON.stringify(userData));
             return { user, userData };
         }
 
-        // 2. Если в Supabase нет сессии, проверяем sessionStorage
         const sessionUser = sessionStorage.getItem('currentUser');
         if (sessionUser) {
             const userData = JSON.parse(sessionUser);
-            
-            // Пытаемся обновить сессию
             const { data, error } = await supabase.auth.refreshSession();
             if (data?.user) {
                 return { user: data.user, userData };
@@ -70,15 +61,12 @@ async function checkAuth() {
     }
 }
 
-// Обновление UI пользователя
 function updateUserUI(userData) {
     document.getElementById('userName').textContent = userData.name;
     document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase();
 }
 
-// Настройка обработчиков событий
 function setupEventListeners() {
-    // Выход из системы
     document.getElementById('logoutBtn').addEventListener('click', async function () {
         try {
             await supabase.auth.signOut();
@@ -90,16 +78,31 @@ function setupEventListeners() {
         }
     });
 
-    // Добавление новой доски
     document.getElementById('addBoardBtn').addEventListener('click', addNewBoard);
+
+    // Модальные окна
+    document.querySelectorAll('.modal .close, .modal .secondary').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.style.display = 'none';
+            });
+        });
+    });
+
+    window.addEventListener('click', function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    });
+
+    document.getElementById('saveBoardBtn').addEventListener('click', saveBoardChanges);
+    document.getElementById('shareBtn').addEventListener('click', shareBoard);
 }
 
-// Загрузка данных
 async function loadData() {
     try {
         const user = await getCurrentUser();
         if (!user) return;
-
         await loadBoards(user.id);
     } catch (error) {
         console.error('Ошибка загрузки данных:', error);
@@ -107,19 +110,16 @@ async function loadData() {
     }
 }
 
-// Получение текущего пользователя
 async function getCurrentUser() {
     const { data: { user } } = await supabase.auth.getUser();
     return user;
 }
 
-// Загрузка досок
 async function loadBoards(userId) {
     try {
         const boardsContainer = document.getElementById('boardsContainer');
         boardsContainer.innerHTML = '<p>Загрузка досок...</p>';
 
-        // Получаем доски пользователя и расшаренные доски
         const [userBoards, sharedBoards] = await Promise.all([
             getUserBoards(userId),
             getSharedBoards(userId)
@@ -135,10 +135,7 @@ async function loadBoards(userId) {
             return;
         }
 
-        // Дополняем информацией о владельцах и количестве карточек
         const enrichedBoards = await enrichBoardsData(allBoards);
-
-        // Отображаем доски
         renderBoards(enrichedBoards);
     } catch (error) {
         console.error('Ошибка загрузки досок:', error);
@@ -148,7 +145,6 @@ async function loadBoards(userId) {
     }
 }
 
-// Получение досок пользователя
 async function getUserBoards(userId) {
     const { data, error } = await supabase
         .from('boards')
@@ -159,7 +155,6 @@ async function getUserBoards(userId) {
     return data || [];
 }
 
-// Получение расшаренных досок
 async function getSharedBoards(userId) {
     const { data, error } = await supabase
         .from('shared_boards')
@@ -170,10 +165,8 @@ async function getSharedBoards(userId) {
     return data || [];
 }
 
-// Обогащение данных о досках
 async function enrichBoardsData(boards) {
     try {
-        // Добавляем информацию о владельцах
         const boardsWithOwners = await Promise.all(
             boards.map(async board => {
                 if (board.isShared) {
@@ -188,7 +181,6 @@ async function enrichBoardsData(boards) {
             })
         );
 
-        // Добавляем количество карточек
         const boardsWithCardCount = await Promise.all(
             boardsWithOwners.map(async board => {
                 const { count } = await supabase
@@ -206,7 +198,6 @@ async function enrichBoardsData(boards) {
     }
 }
 
-// Отображение досок
 function renderBoards(boards) {
     const boardsContainer = document.getElementById('boardsContainer');
     boardsContainer.innerHTML = '';
@@ -217,11 +208,10 @@ function renderBoards(boards) {
     });
 }
 
-// Создание элемента доски
 function createBoardElement(board) {
     const boardElement = document.createElement('div');
     boardElement.className = 'board-item';
-    boardElement.style.backgroundColor = board.color;
+    boardElement.style.backgroundColor = board.color || '#ffffff';
     
     boardElement.innerHTML = `
         <h3>${board.name}</h3>
@@ -234,7 +224,6 @@ function createBoardElement(board) {
         </div>
     `;
 
-    // Обработчик клика по доске
     boardElement.addEventListener('click', function (e) {
         if (!e.target.closest('.board-actions')) {
             sessionStorage.setItem('currentBoard', JSON.stringify(board));
@@ -242,7 +231,6 @@ function createBoardElement(board) {
         }
     });
 
-    // Обработчики действий с доской
     if (!board.isShared) {
         setupBoardActions(boardElement, board.id);
     }
@@ -250,7 +238,6 @@ function createBoardElement(board) {
     return boardElement;
 }
 
-// Настройка обработчиков действий с доской
 function setupBoardActions(boardElement, boardId) {
     const shareBtn = boardElement.querySelector('.share-board');
     const editBtn = boardElement.querySelector('.edit-board');
@@ -263,7 +250,7 @@ function setupBoardActions(boardElement, boardId) {
 
     editBtn?.addEventListener('click', function (e) {
         e.stopPropagation();
-        editBoard(boardId);
+        openEditBoardModal(boardId);
     });
 
     deleteBtn?.addEventListener('click', function (e) {
@@ -272,23 +259,69 @@ function setupBoardActions(boardElement, boardId) {
     });
 }
 
-// Добавление новой доски
-async function addNewBoard() {
-    try {
-        const boardName = document.getElementById('newBoardName').value.trim();
-        const boardColor = document.getElementById('newBoardColor').value;
+async function openEditBoardModal(boardId) {
+    currentEditBoardId = boardId;
+    
+    const { data: board, error } = await supabase
+        .from('boards')
+        .select('*')
+        .eq('id', boardId)
+        .single();
 
-        if (!boardName) {
-            alert('Введите название доски');
-            return;
+    if (error) {
+        alert('Ошибка загрузки данных доски');
+        return;
+    }
+
+    document.getElementById('editBoardName').value = board.name;
+    document.getElementById('editBoardColor').value = board.color || '#ffffff';
+    document.getElementById('editBoardModal').style.display = 'block';
+}
+
+async function saveBoardChanges() {
+    const newName = document.getElementById('editBoardName').value.trim();
+    const newColor = document.getElementById('editBoardColor').value;
+    
+    if (!newName) {
+        alert('Введите название доски');
+        return;
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('boards')
+            .update({ name: newName, color: newColor })
+            .eq('id', currentEditBoardId)
+            .select();
+
+        if (error) throw error;
+
+        // Обновляем sessionStorage если это текущая доска
+        const currentBoard = JSON.parse(sessionStorage.getItem('currentBoard'));
+        if (currentBoard && currentBoard.id === currentEditBoardId) {
+            sessionStorage.setItem('currentBoard', JSON.stringify(data[0]));
         }
 
         const user = await getCurrentUser();
-        if (!user) {
-            window.location.href = 'index.html';
-            return;
-        }
+        await loadBoards(user.id);
+        document.getElementById('editBoardModal').style.display = 'none';
+    } catch (error) {
+        console.error('Ошибка сохранения доски:', error);
+        alert('Не удалось сохранить изменения');
+    }
+}
 
+async function addNewBoard() {
+    const boardName = document.getElementById('newBoardName').value.trim();
+    const boardColor = document.getElementById('newBoardColor').value;
+
+    if (!boardName) {
+        alert('Введите название доски');
+        return;
+    }
+
+    try {
+        const user = await getCurrentUser();
         const { data, error } = await supabase
             .from('boards')
             .insert([{ 
@@ -300,7 +333,6 @@ async function addNewBoard() {
 
         if (error) throw error;
 
-        // Перезагружаем список досок
         await loadBoards(user.id);
         document.getElementById('newBoardName').value = '';
     } catch (error) {
@@ -309,92 +341,12 @@ async function addNewBoard() {
     }
 }
 
-async function openShareModal(boardId) {
-    const modal = document.getElementById('shareModal');
-    const closeBtn = modal.querySelector('.close');
-    const shareBtn = document.getElementById('shareBtn');
-
-    modal.style.display = 'block';
-
-    closeBtn.onclick = () => (modal.style.display = 'none');
-    window.onclick = event => {
-        if (event.target === modal) modal.style.display = 'none';
-    };
-
-    shareBtn.onclick = async function () {
-        const userToShare = document.getElementById('shareUser').value.trim();
-
-        if (!userToShare) {
-            alert('Введите логин или email пользователя');
-            return;
-        }
-
-        try {
-            const { data: userToShareWith, error: userError } = await supabase
-                .from('users')
-                .select('*')
-                .or(`email.eq.${userToShare},username.eq.${userToShare}`)
-                .neq('id', (await getCurrentUser()).id)
-                .single();
-
-            if (userError || !userToShareWith) {
-                alert('Пользователь не найден или вы пытаетесь поделиться с самим собой');
-                return;
-            }
-
-            const { error } = await supabase
-                .from('shared_boards')
-                .insert([{ board_id: boardId, user_id: userToShareWith.id }]);
-
-            if (error) {
-                if (error.code === '23505') {
-                    alert('Вы уже поделились этой доской с данным пользователем');
-                } else {
-                    throw error;
-                }
-                return;
-            }
-
-            alert(`Доска успешно расшарена с пользователем ${userToShareWith.name}`);
-            modal.style.display = 'none';
-            document.getElementById('shareUser').value = '';
-        } catch (error) {
-            console.error('Ошибка расшаривания доски:', error);
-            alert('Не удалось поделиться доской');
-        }
-    };
-}
-
-// Редактирование доски
-async function editBoard(boardId) {
-    try {
-        const newName = prompt('Введите новое название доски:');
-        if (!newName) return;
-
-        const newColor = document.getElementById('newBoardColor').value;
-
-        const { error } = await supabase
-            .from('boards')
-            .update({ name: newName, color: newColor })
-            .eq('id', boardId);
-
-        if (error) throw error;
-
-        const user = await getCurrentUser();
-        await loadBoards(user.id);
-    } catch (error) {
-        console.error('Ошибка редактирования доски:', error);
-        alert('Не удалось обновить доску');
-    }
-}
-
-// Удаление доски
 async function deleteBoard(boardId) {
-    try {
-        if (!confirm('Вы уверены, что хотите удалить эту доску? Все карточки и заметки будут удалены.')) {
-            return;
-        }
+    if (!confirm('Вы уверены, что хотите удалить эту доску? Все карточки и заметки будут удалены.')) {
+        return;
+    }
 
+    try {
         const { error } = await supabase
             .from('boards')
             .delete()
@@ -407,5 +359,53 @@ async function deleteBoard(boardId) {
     } catch (error) {
         console.error('Ошибка удаления доски:', error);
         alert('Не удалось удалить доску');
+    }
+}
+
+async function openShareModal(boardId) {
+    document.getElementById('shareModal').style.display = 'block';
+    document.getElementById('shareUser').value = '';
+    currentEditBoardId = boardId;
+}
+
+async function shareBoard() {
+    const userToShare = document.getElementById('shareUser').value.trim();
+
+    if (!userToShare) {
+        alert('Введите логин или email пользователя');
+        return;
+    }
+
+    try {
+        const { data: userToShareWith, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .or(`email.eq.${userToShare},username.eq.${userToShare}`)
+            .neq('id', (await getCurrentUser()).id)
+            .single();
+
+        if (userError || !userToShareWith) {
+            alert('Пользователь не найден или вы пытаетесь поделиться с самим собой');
+            return;
+        }
+
+        const { error } = await supabase
+            .from('shared_boards')
+            .insert([{ board_id: currentEditBoardId, user_id: userToShareWith.id }]);
+
+        if (error) {
+            if (error.code === '23505') {
+                alert('Вы уже поделились этой доской с данным пользователем');
+            } else {
+                throw error;
+            }
+            return;
+        }
+
+        alert(`Доска успешно расшарена с пользователем ${userToShareWith.name}`);
+        document.getElementById('shareModal').style.display = 'none';
+    } catch (error) {
+        console.error('Ошибка расшаривания доски:', error);
+        alert('Не удалось поделиться доской');
     }
 }
