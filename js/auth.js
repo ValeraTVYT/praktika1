@@ -28,18 +28,42 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Определяем, это email или логин
                 const isEmail = loginIdentifier.includes('@');
 
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    [isEmail ? 'email' : 'username']: loginIdentifier,
-                    password
-                });
+                let authData;
+                
+                if (isEmail) {
+                    // Стандартный вход по email
+                    const { data, error } = await supabase.auth.signInWithPassword({
+                        email: loginIdentifier,
+                        password
+                    });
+                    if (error) throw error;
+                    authData = data;
+                } else {
+                    // Поиск пользователя по логину
+                    const { data: userData, error: userError } = await supabase
+                        .from('users')
+                        .select('email')
+                        .eq('username', loginIdentifier)
+                        .single();
 
-                if (error) throw error;
+                    if (userError || !userData) {
+                        throw new Error('Пользователь с таким логином не найден');
+                    }
+
+                    // Вход по найденному email
+                    const { data, error } = await supabase.auth.signInWithPassword({
+                        email: userData.email,
+                        password
+                    });
+                    if (error) throw error;
+                    authData = data;
+                }
 
                 // Получаем полные данные пользователя
                 const { data: userData, error: userError } = await supabase
                     .from('users')
                     .select('*')
-                    .eq('id', data.user.id)
+                    .eq('id', authData.user.id)
                     .single();
 
                 if (userError) throw userError;
