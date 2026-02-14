@@ -1,9 +1,11 @@
-
+// supabase.js
 import { createClient } from 'https://esm.sh/@supabase/supabase-js'
 
-const supabaseUrl = 'https://fzfeojdeibdtswdpmirh.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6ZmVvamRlaWJkdHN3ZHBtaXJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3MzQ5MzksImV4cCI6MjA3NjMxMDkzOX0.HH-pQPM28ss1Z9cdtTANBdaBTR3oLTdw9zfYQjLH-UM';
+const supabaseUrl = 'https://cccadfyyrwwoeklwndeo.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjY2FkZnl5cnd3b2VrbHduZGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NDI3MjYsImV4cCI6MjA2NDAxODcyNn0.Cr1mLGiMUEc3ie202Ep8pzoOaA5MJRCt3mAQME4LPNs';
 
+// Создаем клиент Supabase
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Экспортируем для использования в других модулях
 export { supabase };

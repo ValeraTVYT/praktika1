@@ -78,6 +78,18 @@ function setupEventListeners() {
         }
     });
 
+    const profileBtn = document.getElementById('profileBtn');
+    if (profileBtn) {
+        profileBtn.addEventListener('click', function() {
+            window.location.href = 'profile.html';
+        });
+    }const profileBtn = document.getElementById('profileBtn');
+    if (profileBtn) {
+        profileBtn.addEventListener('click', function() {
+            window.location.href = 'profile.html';
+        });
+    }
+    
     document.getElementById('addBoardBtn').addEventListener('click', addNewBoard);
 
     // Модальные окна

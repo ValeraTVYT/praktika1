@@ -49,6 +49,14 @@ function setupEventListeners() {
         window.location.href = 'index.html';
     });
 
+    // НОВЫЙ ОБРАБОТЧИК для кнопки профиля
+    const profileBtn = document.getElementById('profileBtn');
+    if (profileBtn) {
+        profileBtn.addEventListener('click', function() {
+            window.location.href = 'profile.html';
+        });
+    }
+    
     document.getElementById('backToBoardBtn').addEventListener('click', function() {
         sessionStorage.removeItem('currentCard');
         window.location.href = 'board.html';

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Note Board - Профиль</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <header>
+        <div class="user-info">
+            <div class="user-avatar" id="userAvatar">U</div>
+            <span id="userName">Пользователь</span>
+            <button id="backToMainBtn" class="btn"><i class="fas fa-home"></i> На главную</button>
+            <button id="logoutBtn" class="btn"><i class="fas fa-sign-out-alt"></i> Выйти</button>
+        </div>
+    </header>
+    
+    <main>
+        <h1><i class="fas fa-user-circle"></i> Мой профиль</h1>
+        
+        <div class="profile-container">
+            <!-- Информация о пользователе -->
+            <div class="profile-info card-item" style="cursor: default; max-width: 500px; margin: 20px auto;">
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div>
+                        <label><strong>Имя:</strong></label>
+                        <span id="profileDisplayName"></span>
+                        <button id="editNameBtn" class="btn" style="margin-left: 10px; padding: 2px 10px;"><i class="fas fa-pen"></i></button>
+                    </div>
+                    <div>
+                        <label><strong>Логин:</strong></label>
+                        <span id="profileUsername"></span>
+                    </div>
+                    <div>
+                        <label><strong>Email:</strong></label>
+                        <span id="profileEmail"></span>
+                    </div>
+                    <div>
+                        <label><strong>Дата регистрации:</strong></label>
+                        <span id="profileCreatedAt"></span>
+                    </div>
+                    <hr>
+                    <div>
+                        <button id="changePasswordBtn" class="btn"><i class="fas fa-key"></i> Изменить пароль</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Модальное окно редактирования имени -->
+    <div id="editNameModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Редактирование имени</h3>
+            <div class="form-group">
+                <label for="editNameInput">Новое имя:</label>
+                <input type="text" id="editNameInput" required>
+            </div>
+            <div class="modal-actions">
+                <button id="cancelNameBtn" class="btn secondary">Отмена</button>
+                <button id="saveNameBtn" class="btn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/profile.js"></script>
+</body>
+</html>
